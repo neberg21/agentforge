@@ -11,6 +11,12 @@ public static class AreaPolicies
 
 public static class AreaRegistration
 {
+    public static WebApplicationBuilder AddAreaSupport(this WebApplicationBuilder builder)
+    {
+        GetOrCreateRegistry(builder.Services);
+        return builder;
+    }
+
     public static WebApplicationBuilder AddArea<TArea>(this WebApplicationBuilder builder)
         where TArea : IArea, new()
     {

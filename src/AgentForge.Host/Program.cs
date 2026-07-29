@@ -12,7 +12,7 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 
-builder.Services.AddSingleton(new AreaRegistry());
+builder.AddAreaSupport();
 
 builder.Services.AddOptions<LocalUserOptions>()
     .Bind(builder.Configuration.GetSection(LocalUserOptions.SectionName))
