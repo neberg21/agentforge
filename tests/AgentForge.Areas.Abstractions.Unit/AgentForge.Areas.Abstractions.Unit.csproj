@@ -1,11 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <RootNamespace>AgentForge.Areas.Abstractions.Unit</RootNamespace>
-  </PropertyGroup>
-
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
