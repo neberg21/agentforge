@@ -15,7 +15,8 @@
 Diese gelten für jede Aufgabe, auch wenn sie dort nicht wiederholt werden.
 
 - Repo-Wurzel: `C:\Users\NEWA002\source\repos\agentforge`. Alle Pfade sind relativ dazu, alle Befehle werden von dort ausgeführt.
-- Auf Repo-Ebene existieren nur `src`, `tests`, `docs` sowie `AgentForge.sln`, `global.json`, `Directory.Build.props`, `Directory.Packages.props` und `.gitignore`. Kein weiteres Verzeichnis wird angelegt.
+- Auf Repo-Ebene existieren nur `src`, `tests`, `docs` sowie `AgentForge.sln`, `global.json`, `Directory.Build.props`, `Directory.Packages.props`, `NuGet.config` und `.gitignore`. Kein weiteres Verzeichnis wird angelegt.
+- Pakete kommen ausschließlich von nuget.org. Die repo-lokale `NuGet.config` löscht geerbte Quellen und bildet alle Pakete auf nuget.org ab. Ohne sie schlägt bei mehreren registrierten Quellen jeder Restore mit `NU1507` fehl, sobald Central Package Management aktiv ist.
 - Zielframework `net10.0` für alle Projekte.
 - `Directory.Build.props` setzt für alle Projekte: `Nullable=enable`, `ImplicitUsings=enable`, `TreatWarningsAsErrors=true`, `LangVersion=latest`.
 - Central Package Management ist aktiv. Paketversionen werden **niemals von Hand geraten**, sondern ausschließlich über `dotnet add package <Name>` hinzugefügt; das SDK trägt die aufgelöste Version in `Directory.Packages.props` ein.
@@ -69,7 +70,7 @@ Die Aufteilung folgt der Verantwortung, nicht der technischen Schicht: Domäne, 
 ### Task 1: Repo-Grundgerüst und Core-Bausteine
 
 **Files:**
-- Create: `global.json`, `Directory.Build.props`, `Directory.Packages.props`, `.gitignore`, `AgentForge.sln`
+- Create: `global.json`, `Directory.Build.props`, `Directory.Packages.props`, `NuGet.config`, `.gitignore`, `AgentForge.sln`
 - Create: `src/AgentForge.Core/Result.cs`, `src/AgentForge.Core/Clock.cs`, `src/AgentForge.Core/ICurrentUser.cs`
 - Test: `tests/AgentForge.Core.Unit/ResultTests.cs`
 
@@ -126,6 +127,25 @@ Die `ItemGroup` bleibt leer; `dotnet add package` füllt sie.
   </ItemGroup>
 </Project>
 ```
+
+- [ ] **Step 4b: `NuGet.config` schreiben**
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="nuget.org">
+      <package pattern="*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+```
+
+Auf diesem Rechner sind mehrere NuGet-Quellen registriert. Zusammen mit Central Package Management verlangt NuGet dann Package Source Mapping und bricht sonst jeden Restore mit `NU1507` ab — auch bei Projekten ohne eine einzige Paketreferenz. Das `<clear />` entfernt die geerbten Quellen für dieses Repo, die Abbildung macht die Herkunft ausdrücklich. Ohne diese Datei schlägt jeder `dotnet build`, `dotnet test` und `dotnet add package` in allen zehn Aufgaben fehl.
 
 - [ ] **Step 5: Projekte anlegen und verdrahten**
 
