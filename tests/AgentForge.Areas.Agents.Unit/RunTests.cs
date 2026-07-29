@@ -60,6 +60,21 @@ public class RunTests
     }
 
     [Fact]
+    public void Der_Snapshot_teilt_sein_Werkzeug_Array_nicht_mit_dem_Agenten()
+    {
+        var clock = TestClock.AtEpoch();
+        var agent = Agent.Create(
+            "owner-1",
+            new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, ["read_file"]),
+            clock.UtcNow);
+        var run = Run.Create(agent, "Baue eine Todo-App.", clock.UtcNow);
+
+        agent.AllowedTools[0] = "shell";
+
+        Assert.Equal(["read_file"], run.AgentSnapshot.AllowedTools);
+    }
+
+    [Fact]
     public void Cancel_setzt_Status_Abschlusszeit_und_neues_Token()
     {
         var clock = TestClock.AtEpoch();

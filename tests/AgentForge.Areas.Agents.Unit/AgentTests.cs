@@ -69,4 +69,19 @@ public class AgentTests
         Assert.Equal(agent.MaxTurns, snapshot.MaxTurns);
         Assert.Equal(agent.AllowedTools, snapshot.AllowedTools);
     }
+
+    [Fact]
+    public void Der_Agent_teilt_sein_Werkzeug_Array_nicht_mit_der_Definition()
+    {
+        var clock = TestClock.AtEpoch();
+        var tools = new[] { "read_file" };
+        var agent = Agent.Create(
+            "owner-1",
+            new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, tools),
+            clock.UtcNow);
+
+        tools[0] = "shell";
+
+        Assert.Equal(["read_file"], agent.AllowedTools);
+    }
 }
