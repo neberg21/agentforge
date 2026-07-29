@@ -56,6 +56,7 @@ agentforge/
       AgentForge.Areas.Agents/
   tests/
     AgentForge.Core.Unit/
+    AgentForge.Areas.Abstractions.Unit/
     AgentForge.Areas.Agents.Unit/
     AgentForge.Host.Integration/
     AgentForge.Host.Architecture/
@@ -247,9 +248,11 @@ Alle Antworten sind ProblemDetails nach RFC 9457, erzeugt über `AddProblemDetai
 
 ## Tests
 
-Vier Projekte auf xUnit v3, benannt nach dem Muster `<Projekt>.<Testart>`. Attrappen nur dort, wo eine echte Implementierung nicht verfügbar ist; für alles andere echte Objekte.
+Fünf Projekte auf xUnit v3, benannt nach dem Muster `<Projekt>.<Testart>`. Attrappen nur dort, wo eine echte Implementierung nicht verfügbar ist; für alles andere echte Objekte.
 
 **`AgentForge.Core.Unit`** prüft die Bausteine aus `Core`, vor allem das Verhalten von `Result<T>`.
+
+**`AgentForge.Areas.Abstractions.Unit`** prüft Slug-Validierung, Bereichsregistrierung und die Abbildung von `Result<T>` auf HTTP-Antworten.
 
 **`AgentForge.Host.Architecture`** prüft die Referenzgraphen: kein Bereich referenziert einen anderen Bereich außerhalb von dessen Contracts, kein Bereich referenziert den Host, jeder Bereich implementiert genau ein `IArea`, jeder Slug ist eindeutig und formgültig. Die Tests hängen am Host, weil nur er alle Assemblies referenziert.
 
