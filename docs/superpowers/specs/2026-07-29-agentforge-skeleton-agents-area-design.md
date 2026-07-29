@@ -37,7 +37,7 @@ Der Begriff trägt im Vorhaben zwei verschiedene Bedeutungen, die getrennt gehal
 
 **Systembereiche** sind fachliche Module des eigenen Systems — Agents, später D&D. Sie teilen sich Host, Datenbank, Auth und Deployment. Sie leben unter `src/Areas/` als modularer Monolith.
 
-**Von Agenten gebaute Anwendungen** sind Ergebnisartefakte mit unbekannter Technik, erzeugt von einem Sprachmodell. Sie leben unter `workspaces/`, außerhalb des Hostprozesses, mit eigenem Build. Ein Fehler dort darf das Agent-System nicht mitreißen. In diesem Teilprojekt bleibt das Verzeichnis leer und git-ignoriert; es wird in Teilprojekt 4 gefüllt.
+**Von Agenten gebaute Anwendungen** sind Ergebnisartefakte mit unbekannter Technik, erzeugt von einem Sprachmodell. Sie leben unter `workspaces/`, außerhalb des Hostprozesses, mit eigenem Build. Ein Fehler dort darf das Agent-System nicht mitreißen. Das Verzeichnis entsteht erst in Teilprojekt 4; in diesem Teilprojekt wird lediglich der `.gitignore`-Eintrag vorbereitet.
 
 ## Repo-Layout
 
@@ -47,7 +47,7 @@ agentforge/
   global.json                       SDK-Pin auf 10.0.1xx
   Directory.Build.props             gemeinsame Compiler-Einstellungen
   Directory.Packages.props          zentrale Paketversionen
-  .gitignore                        ignoriert workspaces/ und .data/
+  .gitignore                        ignoriert .data/ und workspaces/
   src/
     AgentForge.Host/                ASP.NET Core, Composition Root
     AgentForge.Core/                Result-Typen, IClock, ICurrentUser, Id-Erzeugung
@@ -55,12 +55,18 @@ agentforge/
     Areas/
       AgentForge.Areas.Agents/
   tests/
-    AgentForge.Architecture.Tests/
-    AgentForge.Areas.Agents.Tests/
-    AgentForge.Host.Tests/
-  workspaces/                       git-ignoriert, in diesem Teilprojekt leer
-  docs/superpowers/specs/
+    AgentForge.Core.Unit/
+    AgentForge.Areas.Agents.Unit/
+    AgentForge.Host.Integration/
+    AgentForge.Host.Architecture/
+  docs/superpowers/
 ```
+
+Auf Repo-Ebene liegen ausschließlich `src`, `tests`, `docs` sowie die Dateien, die dort liegen müssen: Solution, `global.json`, die beiden `Directory.*.props` und `.gitignore`.
+
+Testprojekte heißen `<Projekt>.<Testart>`. Die Architekturtests hängen am Host, weil nur er alle Assemblies referenziert und der Referenzgraph sonst nicht vollständig sichtbar ist.
+
+Das in der Bereichs-Unterscheidung genannte `workspaces/` wird hier **nicht** angelegt. Es wäre leer und git-ignoriert; es entsteht in Teilprojekt 4, wo Agenten tatsächlich hineinschreiben. Der `.gitignore`-Eintrag wird trotzdem schon gesetzt, damit später nichts versehentlich eingecheckt wird.
 
 Zielframework ist .NET 10, da das SDK auf dem Entwicklungsrechner vorliegt. Nullable-Referenztypen und `TreatWarningsAsErrors` sind in `Directory.Build.props` für alle Projekte aktiviert.
 
@@ -241,13 +247,15 @@ Alle Antworten sind ProblemDetails nach RFC 9457, erzeugt über `AddProblemDetai
 
 ## Tests
 
-Drei Projekte auf xUnit v3. Attrappen nur dort, wo eine echte Implementierung nicht verfügbar ist; für alles andere echte Objekte.
+Vier Projekte auf xUnit v3, benannt nach dem Muster `<Projekt>.<Testart>`. Attrappen nur dort, wo eine echte Implementierung nicht verfügbar ist; für alles andere echte Objekte.
 
-**`AgentForge.Architecture.Tests`** prüft die Referenzgraphen: kein Bereich referenziert einen anderen Bereich außerhalb von dessen Contracts, kein Bereich referenziert den Host, jeder Bereich implementiert genau ein `IArea`, jeder Slug ist eindeutig und formgültig.
+**`AgentForge.Core.Unit`** prüft die Bausteine aus `Core`, vor allem das Verhalten von `Result<T>`.
 
-**`AgentForge.Areas.Agents.Tests`** prüft die Fachregeln ohne HTTP: Zustandsübergänge, Snapshot-Erzeugung, Namenseindeutigkeit, Archivierungsverhalten, Sequence-Vergabe der Nachrichten.
+**`AgentForge.Host.Architecture`** prüft die Referenzgraphen: kein Bereich referenziert einen anderen Bereich außerhalb von dessen Contracts, kein Bereich referenziert den Host, jeder Bereich implementiert genau ein `IArea`, jeder Slug ist eindeutig und formgültig. Die Tests hängen am Host, weil nur er alle Assemblies referenziert.
 
-**`AgentForge.Host.Tests`** fährt über `WebApplicationFactory` die echte Anwendung gegen SQLite `:memory:` hoch und geht die Endpunkte durch, einschließlich aller Fehlerfälle aus der Tabelle oben und der Health- und Areas-Endpunkte.
+**`AgentForge.Areas.Agents.Unit`** prüft die Fachregeln ohne HTTP: Zustandsübergänge, Snapshot-Erzeugung, Namenseindeutigkeit, Archivierungsverhalten, Sequence-Vergabe der Nachrichten.
+
+**`AgentForge.Host.Integration`** fährt über `WebApplicationFactory` die echte Anwendung gegen SQLite `:memory:` hoch und geht die Endpunkte durch, einschließlich aller Fehlerfälle aus der Tabelle oben und der Health- und Areas-Endpunkte.
 
 Protokollierung läuft über die eingebaute Abstraktion; in Produktionsumgebungen schreibt der Console-Provider strukturiert als JSON.
 
