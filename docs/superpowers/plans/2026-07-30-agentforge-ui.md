@@ -1,596 +1,265 @@
-# AgentForge — UI Implementation Plan
+# AgentForge — UI + Conversations Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a React SPA over the AgentForge API for agent CRUD, run start/watch (SSE + messages), and — once Teilprojekt 3b exists — multi-agent conversations with draft-run handoff.
+**Goal:** Extend the Agents area with multi-agent conversations (read-only tools, mentions, draft-run, `conversationId` on runs, `q` on definitions) and ship a React SPA for agents, runs, and chat.
 
-**Architecture:** Vite+React app at `src/AgentForge.Web/` (not in the .NET solution). Explicit area registry mirrors `AddArea<>()`. Shared `http`/`sse` helpers; agents area owns pages, API client, transcript reducer/hooks. Host publishes `dist` into `wwwroot` with SPA fallback. Phase A uses only existing APIs; Phase B is blocked until conversations + draft-run + `q` + optional `conversationId` land in 3b.
+**Architecture:** Backend first in `AgentForge.Areas.Agents` (domain → persistence → services → conversation reply worker/loop → HTTP). Then Vite React app at `src/AgentForge.Web/` consuming the full API. Host publishes `dist` to `wwwroot`. No separate “3b” project — everything missing for conversations is in this plan.
 
-**Tech Stack:** React 19, TypeScript, Vite, Tailwind 4, react-router 7, Vitest, Testing Library; ASP.NET Core Host for static serve.
+**Tech Stack:** .NET 10, EF Core (EnsureCreated), existing LLM/tool/workspace stack; React 19, TypeScript, Vite, Tailwind 4, react-router 7, Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-07-29-agentforge-ui-design.md`
 
 ## Global Constraints
 
-- Repo root: `C:\Users\NEWA002\source\repos\agentforge`. Commands from there unless noted.
-- Frontend lives only under `src/AgentForge.Web/`. Do not add a .NET Web project or put frontend under `tests/`.
-- Error discrimination: ProblemDetails extension field `code` (snake_case). Never match on message text or `type` path segments.
-- Known codes: `agent_not_found`, `run_not_found`, `agent_name_taken`, `concurrency_conflict`, `agent_archived`, `run_invalid_transition`.
-- Run SSE events today: `status` | `message` | `usage` | `error` | `done`. No `token`, no dedicated `tool` event. Tools come from `RunMessage.toolCallsJson` / role `Tool`.
-- JSON from API is camelCase. TypeScript DTOs use camelCase properties matching System.Text.Json defaults.
-- **Windows:** no `.ps1` / `.sh`. Use `cmd /c` or direct `dotnet` / `npm` / `git`. Commits: write message to `%TEMP%\commitmsg.txt`, then `git commit -F %TEMP%\commitmsg.txt`.
-- English commit subjects: `feat:` / `test:` / `chore:` / `docs:`.
+- Repo root: `C:\Users\NEWA002\source\repos\agentforge`.
+- No C# primary constructors; do not inline object creation into method/ctor calls.
+- ProblemDetails `code` snake_case; add new codes from the spec (`conversation_not_found`, `mention_not_participant`, `conversation_archived`).
+- Conversation tools: **only** `read_file` when workspace enabled; never write/shell; shared `LocalPath` on `BaseRef`, no worktree/push.
+- Mentions reply **sequentially** in request order.
+- Frontend only under `src/AgentForge.Web/`.
+- Windows: no `.ps1`/`.sh`; commits via `git commit -F %TEMP%\commitmsg.txt`; English `feat:`/`test:`/`chore:`/`docs:`.
 - After each task: commit only that task’s files.
-- **Stop gate:** Before any Phase B task, verify conversations API exists (`GET /api/agents/conversations` returns non-404). If not, stop and report: Phase A done, Phase B blocked on 3b.
+- xUnit v3, no mocking libraries — hand-written fakes (match existing tests).
 
 ## File Structure
 
-**Create — scaffolding**
-- `src/AgentForge.Web/package.json`
-- `src/AgentForge.Web/vite.config.ts`
-- `src/AgentForge.Web/tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`
-- `src/AgentForge.Web/index.html`
-- `src/AgentForge.Web/src/main.tsx`, `App.tsx`, `index.css`
-- `src/AgentForge.Web/src/test/setup.ts`, `fakeEventSource.ts`
-- `src/AgentForge.Web/vitest.config.ts`
+**Backend — create**
+- `Domain/Conversation.cs`, `ConversationMessage.cs`, `ConversationParticipant.cs` (or owned collection)
+- `Domain/AgentErrors.cs` — extend codes
+- `Persistence/` configs + `AgentsDbContext` DbSets
+- `Application/ConversationService.cs`
+- `Application/AgentService.cs` — add `q`
+- `Application/RunService.cs` — optional `conversationId`
+- `Http/ConversationEndpoints.cs`, request/response records
+- `Runtime/Events/IConversationEventBus.cs` (or generalize existing bus by Guid)
+- `Runtime/Queue/IConversationReplyQueue.cs`, `ConversationReplyWorker.cs`
+- `Runtime/ConversationLoop.cs`
+- `Runtime/Workspace/ConversationReadSession.cs` (ensure clone/fetch; bind read root to `LocalPath`)
 
-**Create — lib + shell**
-- `src/AgentForge.Web/src/lib/http.ts` — fetch wrapper → `ApiError` with `code`
-- `src/AgentForge.Web/src/lib/sse.ts` — EventSource helper
-- `src/AgentForge.Web/src/lib/areas.ts` — load `/api/areas`
-- `src/AgentForge.Web/src/lib/recent.ts` — localStorage recent items
-- `src/AgentForge.Web/src/shell/AppShell.tsx`, `AreaNav.tsx`, `ContextPanel.tsx`
-- `src/AgentForge.Web/src/areas/index.ts` — explicit registry
+**Backend — tests**
+- `tests/AgentForge.Areas.Agents.Unit/ConversationServiceTests.cs`, `ConversationLoopTests.cs`, …
+- `tests/AgentForge.Host.Integration/ConversationEndpointTests.cs`, extend agent/run tests for `q` / `conversationId`
 
-**Create — agents area**
-- `src/AgentForge.Web/src/areas/agents/types.ts`
-- `src/AgentForge.Web/src/areas/agents/api.ts`
-- `src/AgentForge.Web/src/areas/agents/routes.tsx`
-- `src/AgentForge.Web/src/areas/agents/transcriptReducer.ts`
-- `src/AgentForge.Web/src/areas/agents/useRunStream.ts`
-- `src/AgentForge.Web/src/areas/agents/Transcript.tsx`, `TranscriptLog.tsx`, `ToolCallCard.tsx`, `MessageComposer.tsx`
-- Pages: `AgentListPage.tsx`, `AgentFormPage.tsx`, `AgentDetailPage.tsx`, `RunListPage.tsx`, `RunDetailPage.tsx`, `StartRunDialog.tsx`
-- Phase B: `ConversationListPage.tsx`, `ConversationPage.tsx`, `NewConversationDialog.tsx`, `DraftRunDialog.tsx`, `useConversationStream.ts`
+**Frontend — create** (as before under `src/AgentForge.Web/`)
+- scaffold, `lib/*`, `shell/*`, `areas/agents/*` including conversation pages
 
-**Modify — Host**
-- `src/AgentForge.Host/AgentForge.Host.csproj` — Publish target copy `Web/dist` → `wwwroot`
-- `src/AgentForge.Host/Program.cs` — static files + SPA fallback (after MapAreas)
-
-**Tests**
-- `src/AgentForge.Web/src/__tests__/*.test.ts(x)` colocated under Web
+**Host**
+- `Program.cs` static + SPA; csproj Publish copy
 
 ---
 
-## Phase A — buildable against current API
+## Part 1 — Backend
 
-### Task 1: Vite + React + Vitest scaffold
-
-**Files:**
-- Create: all scaffolding files under `src/AgentForge.Web/` listed above (package, vite, tsconfig, index.html, main, App stub, index.css, vitest setup)
-- Test: `src/AgentForge.Web/src/__tests__/smoke.test.tsx`
-
-**Interfaces:**
-- Produces: `npm run dev` / `build` / `test` / `lint` scripts; Vite proxies `/api` to `http://localhost:5xxx` (match Host launch URL from `launchSettings.json` — read Host and set proxy target accordingly, default `http://localhost:5080` if unclear)
-
-- [ ] **Step 1: Read Host launch URL**
-
-Run: `cmd /c "type src\AgentForge.Host\Properties\launchSettings.json"`
-Note `applicationUrl` for the Vite proxy `target`.
-
-- [ ] **Step 2: Scaffold package and configs**
-
-`package.json` dependencies (pin current stable majors matching spec): `react`, `react-dom`, `react-router`; dev: `vite`, `@vitejs/plugin-react`, `typescript`, `tailwindcss` `@tailwindcss/vite`, `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`, `eslint` + typescript-eslint flat config as needed.
-
-`vite.config.ts`:
-
-```ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    proxy: {
-      '/api': { target: 'http://localhost:5080', changeOrigin: true },
-      // adjust port from launchSettings
-    },
-  },
-})
-```
-
-Proxy must not buffer SSE (Vite default for proxy is fine if `http-proxy` streams; do not add response buffering middleware).
-
-- [ ] **Step 3: Smoke test**
-
-```tsx
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import App from '../App'
-
-describe('smoke', () => {
-  it('renders app shell placeholder', () => {
-    render(<App />)
-    expect(screen.getByText(/AgentForge/i)).toBeInTheDocument()
-  })
-})
-```
-
-`App.tsx` temporarily renders `<h1>AgentForge</h1>` until Task 3.
-
-- [ ] **Step 4: Run tests and build**
-
-```
-cd src\AgentForge.Web
-npm install
-npm test
-npm run build
-```
-
-Expected: PASS; `dist/` created.
-
-- [ ] **Step 5: Commit**
-
-```
-chore: scaffold AgentForge.Web with Vite React Vitest
-```
-
----
-
-### Task 2: `http.ts` — ProblemDetails → ApiError
+### Task 1: Conversation domain + persistence
 
 **Files:**
-- Create: `src/AgentForge.Web/src/lib/http.ts`
-- Test: `src/AgentForge.Web/src/__tests__/http.test.ts`
+- Create: `Domain/Conversation.cs`, `Domain/ConversationMessage.cs`
+- Modify: `Persistence/AgentsDbContext.cs`, `Persistence/EntityConfigurations.cs`
+- Modify: `Domain/AgentErrors.cs`
+- Test: `tests/AgentForge.Areas.Agents.Unit/ConversationTests.cs`
 
 **Interfaces:**
-- Produces:
-  - `export type ApiError = { status: number; code: string; title: string; detail: string | null; fieldErrors: Record<string, string[]> }`
-  - `export async function apiGet<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T>`
-  - `export async function apiSend<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T>`
-  - Empty 204/empty body → `null as T` only when caller expects void; prefer `Promise<void>` overload or `apiSendVoid`.
-  - `code` from JSON property `code`; if missing → `'unknown'`.
-  - Query: omit `undefined` and empty-string keys.
+- `Conversation.Create(ownerId, title, IReadOnlyList<Guid> participantAgentIds, now)` — at least one participant; `ConcurrencyToken`; messages collection
+- `Archive(now)`, `Update(title, participantIds, concurrencyToken, now)` → conflict if token mismatch
+- `AppendMessage(...)` with optional `senderAgentId`/`senderName`/`mentionsJson`
+- Errors: `ConversationNotFound`, `ConversationArchived`, `MentionNotParticipant`
 
-- [ ] **Step 1: Failing tests**
+- [ ] **Step 1: Failing domain tests** (create requires participants; archive sets `ArchivedAt`; append increments sequence)
 
-```ts
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiGet, ApiError } from '../lib/http'
-
-afterEach(() => vi.unstubAllGlobals())
-
-describe('apiGet', () => {
-  it('maps problem details code extension', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      new Response(JSON.stringify({
-        title: 'Conflict',
-        detail: 'taken',
-        code: 'agent_name_taken',
-      }), { status: 409, headers: { 'Content-Type': 'application/problem+json' } }),
-    ))
-    await expect(apiGet('/api/agents/definitions')).rejects.toMatchObject({
-      status: 409,
-      code: 'agent_name_taken',
-    })
-  })
-
-  it('omits empty query values', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ items: [], total: 0, skip: 0, take: 50 }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    await apiGet('/api/agents/definitions', { q: '', skip: 0, take: 50 })
-    const url = String(fetchMock.mock.calls[0]![0])
-    expect(url).toBe('/api/agents/definitions?skip=0&take=50')
-  })
-})
-```
-
-- [ ] **Step 2: Run — expect FAIL**
-
-```
-cd src\AgentForge.Web && npm test -- http
-```
-
-- [ ] **Step 3: Implement `http.ts`**
-
-Throw plain object or `class ApiError extends Error` with the fields above; tests use `toMatchObject`. Parse `errors` object for validation field errors when present (ASP.NET validation problem shape).
-
-- [ ] **Step 4: Tests PASS, commit**
-
-```
-feat: add fetch helper with problem-details code mapping
-```
-
----
-
-### Task 3: Shell, area registry, routing
-
-**Files:**
-- Create: `shell/AppShell.tsx`, `AreaNav.tsx`, `ContextPanel.tsx`, `lib/areas.ts`, `lib/recent.ts`, `areas/index.ts`, `areas/agents/routes.tsx` (stub routes redirecting to placeholders)
-- Modify: `App.tsx`, `main.tsx`
-- Test: `src/__tests__/shell.test.tsx`
-
-**Interfaces:**
-- Produces:
-  - `export type AreaModule = { slug: string; title: string; routes: RouteObject[]; nav: { to: string; label: string }[] }`
-  - `export const areaRegistry: AreaModule[]` — starts with agents stub
-  - `loadAreas(): Promise<{ slug: string; title: string }[]>` from `GET /api/areas`
-  - Nav shows intersection of registry ∩ `/api/areas`
-  - Routes: `/` → first area; `/agents` → `/agents/definitions`; nested under `/agents/*`
-  - Context panel: React context `setContext(node: ReactNode)` filled by pages
-
-- [ ] **Step 1: Failing test — nav intersection**
-
-Stub `fetch` for `/api/areas` returning `[{ slug: 'agents', title: 'Agents' }]`. Render app with router memory history. Expect link “Agents” / definitions nav. If registry has only agents and API returns empty, expect no area links.
-
-- [ ] **Step 2: Implement shell + registry + stub agents routes**
-
-Placeholder pages: `<p>Agents</p>`, `<p>Runs</p>` for `/agents/definitions` and `/agents/runs`.
-
-- [ ] **Step 3: Tests PASS, commit**
-
-```
-feat: add app shell with explicit area registry
-```
-
----
-
-### Task 4: Agents API client + types
-
-**Files:**
-- Create: `areas/agents/types.ts`, `areas/agents/api.ts`
-- Test: `src/__tests__/agentsApi.test.ts`
-
-**Interfaces:**
-- Produces types matching API camelCase:
-
-```ts
-export type AgentDto = {
-  id: string
-  name: string
-  description: string | null
-  systemPrompt: string
-  model: string
-  temperature: number
-  maxOutputTokens: number
-  maxTurns: number
-  allowedTools: string[]
-  createdAt: string
-  updatedAt: string
-  archivedAt: string | null
-  concurrencyToken: string
-}
-
-export type AgentSnapshotDto = {
-  name: string
-  systemPrompt: string
-  model: string
-  temperature: number
-  maxOutputTokens: number
-  maxTurns: number
-  allowedTools: string[]
-}
-
-export type RunDto = {
-  id: string
-  agentId: string
-  agentSnapshot: AgentSnapshotDto
-  objective: string
-  status: string
-  createdAt: string
-  startedAt: string | null
-  completedAt: string | null
-  error: string | null
-  promptTokens: number | null
-  completionTokens: number | null
-  costEstimate: number | null
-  concurrencyToken: string
-  conversationId?: string | null // optional until 3b; ignore if absent
-}
-
-export type RunMessageDto = {
-  id: string
-  sequence: number
-  role: string
-  content: string | null
-  toolCallsJson: string | null
-  toolCallId: string | null
-  createdAt: string
-}
-
-export type Paged<T> = { items: T[]; total: number; skip: number; take: number }
-```
-
-- API functions: `listAgents({ q?, skip, take })`, `getAgent`, `createAgent`, `updateAgent`, `archiveAgent`, `listRuns({ agentId?, status?, skip, take })`, `getRun`, `startRun({ agentId, objective, conversationId? })`, `cancelRun(id, concurrencyToken)`, `getRunMessages(id)`.
-- Until `q` exists server-side: still send `q` when non-empty; if server ignores it, client may additionally filter current page by name (document in comment). Prefer server `q` once 3b/host adds it.
-
-- [ ] **Step 1: Tests** — assert URLs/bodies for `listAgents`, `startRun`, `cancelRun` with stubbed `fetch`.
-
-- [ ] **Step 2: Implement, PASS, commit**
-
-```
-feat: add agents area API client and DTOs
-```
-
----
-
-### Task 5: Agent list / form / detail pages
-
-**Files:**
-- Create: `AgentListPage.tsx`, `AgentFormPage.tsx`, `AgentDetailPage.tsx`
-- Wire in `routes.tsx`
-- Test: `src/__tests__/agentPages.test.tsx`
-
-**Interfaces:**
-- Consumes: `api.ts`, shell context, `rememberItem` from `recent.ts`
-- List: debounced `q` 300ms, page size 50, archive confirm dialog, actions start run / start conversation (conversation action can navigate to `/agents/conversations/new` query `agentId=` even if Phase B page is stub — or hide until Phase B; **hide conversation CTAs until Phase B** to avoid dead ends).
-- Form: sections Identity, System prompt, Model & limits, Tools (chip input). Client validation matches server ranges. On `agent_name_taken` / `concurrency_conflict` show field/banner per spec.
-- Detail: show prompt; buttons edit, archive, start run.
-
-- [ ] **Step 1: Tests** with stubbed API — list renders name; archive calls DELETE; form submit POST; 409 `concurrency_conflict` shows reload affordance.
-
-- [ ] **Step 2: Implement pages (< ~200 lines each; extract small helpers if needed).**
+- [ ] **Step 2: Implement entities + EF config** (`agents_conversation`, `agents_conversation_message`, participants as JSON column or join table — prefer JSON array of agent ids on conversation **or** explicit `ConversationParticipant` table with FK; use explicit table if querying by agent later — **use `ConversationParticipant` entity** `(ConversationId, AgentId)` unique)
 
 - [ ] **Step 3: PASS, commit**
 
 ```
-feat: add agent list form and detail pages
+feat: add conversation domain and persistence
 ```
 
----
-
-### Task 6: transcriptReducer + ToolCallCard
+### Task 2: ConversationService CRUD + archive
 
 **Files:**
-- Create: `transcriptReducer.ts`, `ToolCallCard.tsx`, optionally shared `Transcript.tsx` skeleton
-- Test: `src/__tests__/transcriptReducer.test.ts`
+- Create: `Application/ConversationService.cs`
+- Test: `tests/AgentForge.Areas.Agents.Unit/ConversationServiceTests.cs`
 
 **Interfaces:**
-- Produces:
+- `CreateAsync(title?, participantAgentIds, ct)` — resolve agents (not archived); default title from names; owner from `ICurrentUser`
+- `GetAsync`, `ListAsync(page)` — exclude archived; include participant names (join Agents); last message excerpt/at
+- `UpdateAsync(id, title, participantAgentIds, concurrencyToken, ct)`
+- `ArchiveAsync(id, ct)` — idempotent like agents
+- `GetMessagesAsync(id, ct)`
 
-```ts
-export type TranscriptMessage = {
-  id: string
-  sequence: number
-  role: string
-  content: string | null
-  toolCallsJson: string | null
-  toolCallId: string | null
-  senderAgentId?: string | null
-  senderName?: string | null
-  pending?: boolean
-}
-
-export type TranscriptState = {
-  bySequence: Record<number, TranscriptMessage>
-  status: string | null
-  usage: { promptTokens?: number; completionTokens?: number; costEstimate?: number } | null
-  error: string | null
-  done: boolean
-}
-
-export type TranscriptAction =
-  | { type: 'hydrate'; messages: TranscriptMessage[] }
-  | { type: 'sse'; event: string; data: unknown }
-  | { type: 'reloadMessages'; messages: TranscriptMessage[] }
-
-export function transcriptReducer(state: TranscriptState, action: TranscriptAction): TranscriptState
-export function messagesInOrder(state: TranscriptState): TranscriptMessage[]
-```
-
-- On `sse` `message`: if payload lacks full content, set flag so hook re-fetches messages (reducer can set `needsMessageReload: true` on state — add that field).
-- Deduplicate by `sequence` (last write wins).
-- Parse `toolCallsJson` in `ToolCallCard` for display (name + args summary); collapsed by default.
-
-- [ ] **Step 1: Unit tests** — hydrate; duplicate sequence; `status`/`usage`/`error`/`done` events; `needsMessageReload` on sparse message event.
-
-- [ ] **Step 2: Implement, PASS, commit**
-
-```
-feat: add transcript reducer and tool call card
-```
-
----
-
-### Task 7: useRunStream + Run detail / list / start dialog
-
-**Files:**
-- Create: `useRunStream.ts`, `sse.ts` (if not done), `RunListPage.tsx`, `RunDetailPage.tsx`, `StartRunDialog.tsx`, `Transcript.tsx`, `TranscriptLog.tsx`
-- Test: `src/__tests__/runStream.test.tsx`, `src/__tests__/runPages.test.tsx`
-- Create: `src/test/fakeEventSource.ts`
-
-**Interfaces:**
-- `openEventSource(url: string, handlers: { onEvent(type: string, data: unknown): void; onError(): void }): () => void` cleanup
-- `useRunStream(runId: string)`: load `getRun` + `getRunMessages`, open `/api/agents/runs/{id}/stream`, dispatch into reducer; when `needsMessageReload`, call `getRunMessages` again and `reloadMessages`.
-- Run detail: chat vs log toggle; cancel when Pending/Running with token; map `run_invalid_transition` / `concurrency_conflict`; sticky scroll.
-- Start dialog: objective + agent; `agent_archived` message; navigate to run detail on success.
-- Fake EventSource for tests: queue events, support `close`.
-
-- [ ] **Step 1: Reducer/stream tests with fake EventSource** — status Running → message → reload path → done.
-
-- [ ] **Step 2: Page tests** — list filter; detail cancel; start dialog.
-
-- [ ] **Step 3: Implement, PASS, commit**
-
-```
-feat: add run list detail stream and start dialog
-```
-
----
-
-### Task 8: Host static files + SPA fallback + Publish copy
-
-**Files:**
-- Modify: `src/AgentForge.Host/Program.cs`
-- Modify: `src/AgentForge.Host/AgentForge.Host.csproj`
-- Optional: `wwwroot/.gitkeep` not required if publish creates it
-
-**Interfaces:**
-- After `MapAreas()`, in non-dev-or-always: `UseDefaultFiles` + `UseStaticFiles` for `wwwroot`.
-- Fallback: for non-file, non-`/api`, non-`/_health`, non-openapi routes → `index.html` (use `MapFallbackToFile("index.html")` carefully so it does not steal `/api`).
-- csproj Target `PublishFrontend` BeforeTargets `Publish` or AfterTargets `ComputeFilesToPublish`: run `npm ci` + `npm run build` in `../AgentForge.Web` only on Publish (not on `dotnet build`), copy `dist/**` to `wwwroot`.
-
-Example target sketch:
-
-```xml
-<Target Name="PublishFrontend" BeforeTargets="PrepareForPublish" Condition="'$(SkipFrontendPublish)' != 'true'">
-  <Exec WorkingDirectory="$(MSBuildThisFileDirectory)..\AgentForge.Web" Command="npm ci" />
-  <Exec WorkingDirectory="$(MSBuildThisFileDirectory)..\AgentForge.Web" Command="npm run build" />
-  <ItemGroup>
-    <DistFiles Include="$(MSBuildThisFileDirectory)..\AgentForge.Web\dist\**\*.*" />
-  </ItemGroup>
-  <Copy SourceFiles="@(DistFiles)" DestinationFolder="$(MSBuildThisFileDirectory)wwwroot\%(RecursiveDir)" />
-</Target>
-```
-
-- [ ] **Step 1: Implement Program + csproj.**
-
-- [ ] **Step 2: Manual check** — `npm run build` in Web, copy once manually if needed, `dotnet run --project src/AgentForge.Host`, open `/agents/definitions`, hard-reload `/agents/runs/{some-id}` → not API 404 HTML.
-
-- [ ] **Step 3: Commit**
-
-```
-feat: serve AgentForge.Web from host on publish
-```
-
----
-
-### Task 9: Phase A verification
-
-- [ ] **Step 1: Run**
-
-```
-cd src\AgentForge.Web
-npm test
-npm run lint
-npm run build
-```
-
-Expected: clean.
-
-- [ ] **Step 2: Against running Host** — create agent, start run, open run detail, observe status/messages (Fake LLM or configured NanoGPT). Cancel path once.
-
-- [ ] **Step 3: Commit any fixes**
-
-```
-test: finish phase A UI verification fixes
-```
-
-**Phase A done.** Agent + Run UI satisfies spec criteria 1–3 and 7–9 (partially: error tests for codes exercised in unit tests; conversation criteria deferred).
-
----
-
-## Phase B — blocked on Teilprojekt 3b
-
-**Gate:** `GET /api/agents/conversations` must not be 404. Also require: `q` on definitions, optional `conversationId` on create run + on `RunDto`, `POST .../draft-run`.
-
-If gate fails: **do not implement Phase B**; report blocked.
-
-### Task 10: Conversation types + API + stream hook
-
-**Files:**
-- Modify: `src/AgentForge.Web/src/areas/agents/types.ts`, `api.ts`
-- Create: `src/AgentForge.Web/src/areas/agents/useConversationStream.ts`
-- Test: `src/AgentForge.Web/src/__tests__/conversationsApi.test.ts`
-
-**Interfaces:**
-- Types:
-
-```ts
-export type ParticipantDto = { agentId: string; name: string }
-
-export type ConversationDto = {
-  id: string
-  title: string
-  participants: ParticipantDto[]
-  lastMessageExcerpt: string | null
-  lastMessageAt: string | null
-  createdAt: string
-  archivedAt: string | null
-  concurrencyToken: string
-}
-
-export type ConversationMessageDto = {
-  id: string
-  sequence: number
-  role: string
-  content: string | null
-  toolCallsJson: string | null
-  toolCallId: string | null
-  createdAt: string
-  senderAgentId: string | null
-  senderName: string | null
-}
-```
-
-- Functions: `listConversations`, `getConversation`, `createConversation({ title?, participantAgentIds })`, `updateConversation`, `archiveConversation`, `getConversationMessages`, `postConversationMessage(id, { content, mentions })` expecting **202** body `{ streamId: string }`, `draftRun(id, body?: { agentId?: string })` → `{ objective: string; agentId: string }`
-- `startRun` body includes `conversationId` when defined
-- `useConversationStream(conversationId)`: `getConversationMessages` then `EventSource` on `/api/agents/conversations/{id}/stream`; map messages into `TranscriptMessage` (set `senderAgentId`/`senderName`); reuse `transcriptReducer`
-
-- [ ] **Step 1: Failing tests** — `postConversationMessage` uses POST and reads `streamId` from 202; `draftRun` POSTs to `.../draft-run`; `startRun` serializes `conversationId`.
-
-- [ ] **Step 2: Implement types/api/hook**
-
-- [ ] **Step 3: PASS, commit**
-
-```
-feat: add conversation API client and stream hook
-```
-
-### Task 11: Conversation list + page + composer mentions
-
-**Files:**
-- Create: `ConversationListPage.tsx`, `ConversationPage.tsx`, `NewConversationDialog.tsx`, `MessageComposer.tsx`
-- Modify: `routes.tsx`, agent pages (show “Gespräch beginnen”)
-- Test: `src/__tests__/conversationPages.test.tsx`
-
-**Interfaces:**
-- Composer: typing `@` opens filtered participant list; selecting adds chip; submit sends `mentions: string[]` (agent ids). Empty mentions allowed.
-- UI copy when empty mentions: message saved, show “nicht adressiert” (or English UI string if the app is English — match surrounding UI language; prefer English UI strings in code: “Not addressed — no agent will reply”).
-- `senderColor(agentId: string): string` — stable HSL from hash of id
-- List archive with confirm; new conversation dialog multi-select agents
-
-- [ ] **Step 1: Tests** — mention chip → POST body; empty mentions still POSTs and shows not-addressed hint; list archive calls DELETE.
-
-- [ ] **Step 2: Implement pages**
-
-- [ ] **Step 3: PASS, commit**
-
-```
-feat: add conversation list and chat pages
-```
-
-### Task 12: DraftRunDialog
-
-**Files:**
-- Create: `DraftRunDialog.tsx`
-- Modify: `ConversationPage.tsx`, `RunDetailPage.tsx` (link when `conversationId`)
-- Test: `src/__tests__/draftRun.test.tsx`
-
-**Interfaces:**
-- Button “Draft run” → `draftRun(conversationId)` → dialog fields `objective`, `agentId` (select among participants) prefilled → confirm → `startRun({ agentId, objective, conversationId })` → navigate `/agents/runs/:id`
-- Run detail context: if `run.conversationId`, link to `/agents/conversations/:id`
-
-- [ ] **Step 1: Test** — draft then start asserts `conversationId` in startRun body and navigation.
+- [ ] **Step 1: Failing service tests** with in-memory/sqlite test DbContext pattern used by `AgentServiceTests`
 
 - [ ] **Step 2: Implement**
 
 - [ ] **Step 3: PASS, commit**
 
 ```
-feat: add draft-run handoff from conversations
+feat: add conversation application service
 ```
 
-### Task 13: Phase B verification
+### Task 3: `q` on definitions + `conversationId` on runs
 
-- [ ] **Step 1:** `cd src\AgentForge.Web` → `npm test` && `npm run lint` && `npm run build` — clean
-- [ ] **Step 2:** Manual against Host+3b — three participants, `@` one agent, note without mentions, draft run, open linked run and back-link
-- [ ] **Step 3:** Commit any fixes with `test:` / `fix:` as appropriate
+**Files:**
+- Modify: `Application/AgentService.cs`, `Http/AgentEndpoints.cs`
+- Modify: `Domain/Run.cs`, `Application/RunService.cs`, `Http/Requests.cs`, `Http/Responses.cs`, EF config
+- Test: unit + `tests/AgentForge.Host.Integration/AgentEndpointTests.cs`, `RunEndpointTests.cs`
+
+**Interfaces:**
+- `ListAsync(PageRequest page, string? q, ct)` — `EF.Functions.Like` / `Contains` case-insensitive on Name when `q` set
+- `CreateRunRequest(AgentId, Objective, Guid? ConversationId)`
+- `Run.Create(..., Guid? conversationId)`; persist nullable `ConversationId`
+- Validate conversation exists, same owner, not archived when provided
+
+- [ ] **Step 1: Failing tests**
+
+- [ ] **Step 2: Implement**
+
+- [ ] **Step 3: PASS, commit**
+
+```
+feat: add agent search q and run conversationId
+```
+
+### Task 4: Conversation read session + reply loop
+
+**Files:**
+- Create: `Runtime/Workspace/IConversationReadSession.cs`, `ConversationReadSession.cs`
+- Create: `Runtime/ConversationLoop.cs`
+- Create: `Runtime/Events/` conversation bus (reuse `InProcessRunEventBus` pattern keyed by conversation id — e.g. rename conceptually to `IStreamEventBus` **or** duplicate `IConversationEventBus` / `InProcessConversationEventBus` to avoid breaking runs; **prefer duplicate thin copy** for YAGNI rename)
+- Create: `Runtime/Queue/IConversationReplyQueue.cs`, `ChannelConversationReplyQueue.cs`, `ConversationReplyWorker.cs`
+- Modify: `AgentsArea.cs` DI
+- Test: `ConversationLoopTests.cs` with `ScriptedLlmClient` + fake git/read root temp dir
+
+**Interfaces:**
+- `ConversationReplyJob(Guid ConversationId, Guid StreamId, IReadOnlyList<Guid> AgentIds)`
+- `IConversationReadSession.BeginAsync(ct)` → ensure clone/fetch via `IGitWorkspace`; set `AsyncLocal` root = `LocalPath` (not worktree); `Dispose`/end clears AsyncLocal only (no remove worktree)
+- `ConversationLoop.ExecuteReplyAsync(conversationId, agentId, streamId, ct)`:
+  - load agent + messages; build LLM request with tools = `[read_file]` iff workspace enabled
+  - bind read session; run turn loop like `RunLoop` but append `ConversationMessage` with sender fields; publish on conversation bus
+  - never register write/shell for this loop
+- Worker: dequeue job; for each agentId sequentially run loop; finally publish `done`
+
+- [ ] **Step 1: Failing loop test** — scripted tool call `read_file` succeeds against temp file under LocalPath; `write_file` not offered in request tools list
+
+- [ ] **Step 2: Implement session, loop, queue, worker, DI**
+
+- [ ] **Step 3: PASS, commit**
+
+```
+feat: add conversation reply loop with read-only workspace
+```
+
+### Task 5: Post message + SSE + draft-run endpoints
+
+**Files:**
+- Create: `Http/ConversationEndpoints.cs`
+- Modify: `Http/Requests.cs`, `Responses.cs`, `AgentsArea.MapEndpoints`
+- Extend: `ConversationService` with `PostMessageAsync`, `DraftRunAsync`
+- Test: `tests/AgentForge.Host.Integration/ConversationEndpointTests.cs`
+
+**Interfaces:**
+- `PostMessageAsync(id, content, mentions)`:
+  - validate mentions ⊆ participants → else `mention_not_participant`
+  - persist user message; if mentions empty → return 202 `{ streamId }` without enqueue (UI may skip stream or open stream and get nothing until later — still return streamId; optional immediate `done` publish)
+  - else enqueue job; return 202 `{ streamId }`
+- `GET .../stream` — same SSE write pattern as `RunEndpoints.StreamRunAsync` on conversation bus
+- `DraftRunAsync(id, agentId?)` — pick agent; LLM completion with system instruction to propose objective from transcript; return `{ objective, agentId }`; no persist run
+- Map routes under `/conversations`
+
+- [ ] **Step 1: Integration tests** with Fake LLM — note (no mention) stores one user message; mention yields assistant message; draft returns objective; archived rejects post
+
+- [ ] **Step 2: Implement endpoints + service methods**
+
+- [ ] **Step 3: PASS, commit**
+
+```
+feat: add conversation HTTP endpoints stream and draft-run
+```
+
+### Task 6: Backend verification
+
+- [ ] **Step 1:** `dotnet test` on `AgentForge.Areas.Agents.Unit` and `AgentForge.Host.Integration` — all green
+- [ ] **Step 2:** Commit any fixes `test: harden conversation backend tests`
+
+---
+
+## Part 2 — Frontend
+
+### Task 7: Vite + React + Vitest scaffold
+
+**Files:** scaffold under `src/AgentForge.Web/` (package.json, vite, tsconfig, index.html, main, App, index.css, vitest, test/setup)
+
+**Interfaces:** scripts `dev`/`build`/`test`/`lint`; proxy `/api` to Host URL from `launchSettings.json`
+
+- [ ] Smoke test renders AgentForge; `npm test` + `npm run build` PASS
+- [ ] Commit `chore: scaffold AgentForge.Web with Vite React Vitest`
+
+### Task 8: `http.ts` ApiError from `code`
+
+**Files:** `src/lib/http.ts`, `__tests__/http.test.ts`
+
+- [ ] Tests for `agent_name_taken` mapping and omitted empty query keys
+- [ ] Implement; commit `feat: add fetch helper with problem-details code mapping`
+
+### Task 9: Shell, area registry, routing
+
+**Files:** `shell/*`, `lib/areas.ts`, `lib/recent.ts`, `areas/index.ts`, stub `areas/agents/routes.tsx`
+
+- [ ] Nav = registry ∩ `/api/areas`; routes for definitions/runs/conversations
+- [ ] Commit `feat: add app shell with explicit area registry`
+
+### Task 10: Agents API client + types (incl. conversations)
+
+**Files:** `areas/agents/types.ts`, `api.ts`, `__tests__/agentsApi.test.ts`, `__tests__/conversationsApi.test.ts`
+
+**Interfaces:** DTOs for Agent, Run (+ `conversationId`), RunMessage, Conversation, ConversationMessage, Participant; all list/get/create/update/archive; `postConversationMessage` → 202 `streamId`; `draftRun`; `startRun` with optional `conversationId`; `listAgents` sends `q`
+
+- [ ] Failing URL/body tests; implement; commit `feat: add agents and conversations API client`
+
+### Task 11: Agent list / form / detail
+
+**Files:** `AgentListPage.tsx`, `AgentFormPage.tsx`, `AgentDetailPage.tsx`
+
+- [ ] Debounced `q`, archive, form concurrency/`agent_name_taken`, CTAs for run + conversation
+- [ ] Commit `feat: add agent list form and detail pages`
+
+### Task 12: transcriptReducer + ToolCallCard
+
+**Files:** `transcriptReducer.ts`, `ToolCallCard.tsx`, tests
+
+- [ ] Hydrate/dedupe/sse/`needsMessageReload`; commit `feat: add transcript reducer and tool call card`
+
+### Task 13: Runs UI + useRunStream
+
+**Files:** `useRunStream.ts`, `sse.ts`, `fakeEventSource.ts`, `RunListPage.tsx`, `RunDetailPage.tsx`, `StartRunDialog.tsx`, `Transcript.tsx`, `TranscriptLog.tsx`
+
+- [ ] Stream + message reload; cancel; start dialog; commit `feat: add run list detail stream and start dialog`
+
+### Task 14: Conversations UI + mentions + draft run
+
+**Files:** `useConversationStream.ts`, `ConversationListPage.tsx`, `ConversationPage.tsx`, `NewConversationDialog.tsx`, `MessageComposer.tsx`, `DraftRunDialog.tsx`
+
+**Interfaces:**
+- `@` mention chips → ids; empty mentions → “Not addressed — no agent will reply”
+- Draft run dialog → `draftRun` → edit → `startRun` with `conversationId` → navigate run; run detail links back
+
+- [ ] Tests for mentions POST body, draft handoff, archive
+- [ ] Implement; commit `feat: add conversation chat and draft-run UI`
+
+### Task 15: Host static files + Publish
+
+**Files:** `Program.cs`, `AgentForge.Host.csproj`
+
+- [ ] Static files + SPA fallback; Publish runs npm build + copy to wwwroot (not on `dotnet build`)
+- [ ] Commit `feat: serve AgentForge.Web from host on publish`
+
+### Task 16: End-to-end verification (manual + automated)
+
+- [ ] `dotnet test` (unit + integration)
+- [ ] `cd src\AgentForge.Web` → `npm test` && `npm run lint` && `npm run build`
+- [ ] Manual: multi-agent chat with `@`, note without mentions, draft run, linked run, agent CRUD, run cancel
+- [ ] Commit fixes if needed
 
 ---
 
@@ -598,18 +267,19 @@ feat: add draft-run handoff from conversations
 
 | Spec item | Task |
 |---|---|
-| Scaffold Web + Tailwind + Vitest | 1 |
-| `code`-based ApiError | 2 |
-| Shell / registry / `/api/areas` ∩ nav | 3 |
-| Agent CRUD UI | 4–5 |
-| Run list/detail/SSE/tools from messages | 6–7 |
-| Host wwwroot + SPA + Publish | 8 |
-| Phase A verify | 9 |
-| Conversations + mentions + read-only (API) | 10–11 (3b) |
-| Draft run + `conversationId` | 12 (3b) |
-| Error table tests | 2, 5, 7, 11 |
-| Criteria 4–6 | Phase B |
+| Conversation domain/persistence | 1 |
+| Conversation CRUD service | 2 |
+| `q` + `conversationId` | 3 |
+| Read-only reply loop + worker | 4 |
+| HTTP messages/stream/draft-run | 5–6 |
+| Web scaffold + http + shell | 7–9 |
+| API client | 10 |
+| Agent pages | 11 |
+| Transcript + runs UI | 12–13 |
+| Conversation + draft UI | 14 |
+| Host serve | 15 |
+| Full verify | 16 |
 
-## Out of scope (do not implement)
+## Out of scope
 
-- Auth UI, multi-tenant, E2E, cost charts, workspace file browser, Blazor, React Query, token-streaming UI until API emits `token`
+- Auth UI, multi-tenant, browser E2E, cost charts, workspace file browser, Blazor, React Query, token-streaming events

@@ -21,19 +21,19 @@ Der bevorzugte Ablauf: im Gespräch ausarbeiten → ein Teilnehmer schlägt ein 
 
 ## Abgrenzung
 
-**Enthalten:** Shell mit Bereichsnavigation, Agenten-Verwaltung, Run-Verwaltung samt Stream, Einzel- und Gruppengespräche mit Erwähnungen, Draft-Run-Übergang, Fehlerbehandlung, Auslieferung durch den Host, Vitest-Aufbau.
+**Enthalten:** Conversation-Backend (Persistenz, Mentions-Antwort-Loop, read-only Workspace-Bindung, Draft-Run, SSE), Erweiterungen an Definitions/Runs (`q`, `conversationId`), React-UI (Shell, Agenten, Runs, Gespräche, Draft-Run), Host-Auslieferung, Unit-/Integrationstests (API) und Vitest (UI).
 
-**Nicht enthalten:** Anmeldung und Benutzerverwaltung (Host: ein Besitzer), Mandantenfähigkeit, Rollen, Mehrsprachigkeit, Ende-zu-Ende-Tests, eigene Mobilansicht, Datei-Browser für Workspaces, Kosten-Diagramme, die detaillierte Backend-Spezifikation von Teilprojekt 3b (nur die geforderte API-Fläche unten).
+**Nicht enthalten:** Anmeldung und Benutzerverwaltung (Host: ein Besitzer), Mandantenfähigkeit, Rollen, Mehrsprachigkeit, Ende-zu-Ende-Browser-Tests, eigene Mobilansicht, Datei-Browser für Workspaces, Kosten-Diagramme, Token-SSE (Zeichen-Streaming).
 
 ## Einordnung und Abhängigkeiten
 
-Voraussetzungen: Host, Agents-Bereich, Runtime mit SSE, Workspace-Werkzeuge (Teilprojekte 1–4) sind umgesetzt und bilden die Fläche, an die diese UI gebunden wird.
+Voraussetzungen: Host, Agents-Bereich, Runtime mit SSE, Workspace-Werkzeuge (Teilprojekte 1–4) sind umgesetzt. Dieses Teilprojekt **erweitert denselben Agents-Bereich** und liefert die UI darüber — kein separates Backend-Teilprojekt.
 
-Gespräche, Draft-Run und optionales `conversationId` am Run existieren in der API **noch nicht**. Sie werden als Teilprojekt **3b** nachgeliefert. Dieses Dokument spezifiziert nur die Fläche, die die UI braucht; entworfen wird 3b getrennt. Ohne 3b sind Agenten- und Run-Ansichten baubar; Chat- und Draft-Kriterien sind dann blockiert.
+## Backend: Gespräche und API-Erweiterungen
 
-## API-Fläche
+Alles liegt unter `src/Areas/AgentForge.Areas.Agents/` (Domain, Persistence, Application, Http, Runtime). Registrierung weiterhin nur über `AgentsArea`.
 
-### Bereits umgesetzt (UI bindet 1:1)
+### Bestehende Fläche (bleibt)
 
 ```
 GET/POST       /api/agents/definitions
@@ -46,57 +46,85 @@ GET            /api/agents/runs/{id}/stream
 GET            /api/areas
 ```
 
-**Fehler:** ProblemDetails nach RFC 9457 mit Erweiterung `code` (snake_case). Die UI unterscheidet Fälle ausschließlich über `code`, niemals über Meldungstexte und nicht über Pfadsegmente von `type`. Bekannte Codes:
+**Fehler:** ProblemDetails mit Erweiterung `code` (snake_case). UI und Clients unterscheiden ausschließlich über `code`.
 
 | `code` | HTTP |
 |---|---|
 | `agent_not_found` | 404 |
 | `run_not_found` | 404 |
+| `conversation_not_found` | 404 |
 | `agent_name_taken` | 409 |
 | `concurrency_conflict` | 409 |
 | `agent_archived` | 409 |
 | `run_invalid_transition` | 409 |
+| `mention_not_participant` | 400 |
+| `conversation_archived` | 409 |
 
-**Run-SSE heute:** Ereignisarten `status`, `message`, `usage`, `error`, `done`. Es gibt keine `token`-Ereignisse und kein separates `tool`-Ereignis. Werkzeugaufrufe stecken in den persistierten Nachrichten (`toolCallsJson` / Rolle Tool). Die UI lädt den Verlauf per `GET .../messages` und aktualisiert ihn bei `message` (und bei Bedarf durch erneutes Laden). `Last-Event-ID` wird vom Server noch nicht geliefert; die UI verlässt sich darauf nicht.
+**Run-SSE:** `status` \| `message` \| `usage` \| `error` \| `done`. Kein `token`, kein separates `tool`-Ereignis. Werkzeuge in Nachrichten (`toolCallsJson` / Rolle Tool). Kein `Last-Event-ID` in v1.
 
-**AllowedTools** haben Bedeutung (`read_file`, `write_file`, `run_shell`). Die Modellauswahl im Formular bleibt freies Textfeld; eine Modell-Liste vom Server gibt es nicht.
+### Erweiterungen bestehender Endpunkte
 
-### Kleine Erweiterungen bestehender Endpunkte (von 3b / Host erwartet)
-
-| Änderung | Grund |
+| Änderung | Verhalten |
 |---|---|
-| `q` an `GET /api/agents/definitions` (Name enthält, case-insensitive) | Suchfeld ohne vorgetäuschte Vollständigkeit clientseitig über eine Seite |
-| optionales `conversationId` an `CreateRunRequest` | Historisierung Run ↔ Gespräch |
-| Draft-Run-Endpunkt (oder gleichwertig vereinbart) | Objective aus dem Thread vorschlagen lassen |
+| `q` an `GET /definitions` | optional; Name enthält, case-insensitive; filtert nicht-archivierte |
+| `conversationId?` an `POST /runs` und `RunResponse` | optional; muss existierende, nicht archivierte Conversation des Owners sein, sonst 400/404; nur Historisierung, ändert Run-Ausführung nicht |
+| Agent-Snapshot / AllowedTools | unverändert für Runs |
 
-### Gespräche (neu, Teilprojekt 3b — nur Fläche)
+### Gespräche — Modell
 
-Ein `Conversation` hat einen Titel und `1..N` Agenten als Teilnehmer. **Der Einzelchat ist die Gruppe mit einem Teilnehmer** — eine Entität, eine Ansicht.
+Ein `Conversation` hat `OwnerId`, Titel, `ConcurrencyToken`, `ArchivedAt?`, `CreatedAt`/`UpdatedAt`, und `1..N` Teilnehmer (`AgentId`). **Einzelchat = Gruppe mit einem Teilnehmer.**
+
+`ConversationMessage`: `Sequence`, `Role`, `Content`, `ToolCallsJson`, `ToolCallId`, `SenderAgentId?`, `SenderName?` (denormalisiert zum Sendezeitpunkt), `CreatedAt`. User-Nachrichten können Mentions speichern (JSON-Array der Agent-Ids) für Audit; die Ausführung liest Mentions aus dem POST.
+
+Archivierung: `DELETE` setzt `ArchivedAt`; Listen ohne Archivierte; Get per Id weiter möglich. Keine neuen Messages / Drafts auf archivierte Gespräche (`conversation_archived`).
+
+### Gespräche — HTTP
 
 ```
 GET    /api/agents/conversations
-POST   /api/agents/conversations                 {title?, participantAgentIds[]}
-GET    /api/agents/conversations/{id}            Teilnehmer mit Id und Name
-PUT    /api/agents/conversations/{id}            Titel und Teilnehmer, ConcurrencyToken
-DELETE /api/agents/conversations/{id}            archiviert (ArchivedAt), wie Agenten
+POST   /api/agents/conversations                 { title?, participantAgentIds[] }
+GET    /api/agents/conversations/{id}
+PUT    /api/agents/conversations/{id}            { title, participantAgentIds[], concurrencyToken }
+DELETE /api/agents/conversations/{id}
 GET    /api/agents/conversations/{id}/messages
-POST   /api/agents/conversations/{id}/messages   {content, mentions[]} → 202 + streamId
-GET    /api/agents/conversations/{id}/stream     SSE
-POST   /api/agents/conversations/{id}/draft-run  [{ agentId? }] → { objective, agentId }
+POST   /api/agents/conversations/{id}/messages   { content, mentions[] } → 202 { streamId }
+GET    /api/agents/conversations/{id}/stream     SSE (pro Conversation-Id)
+POST   /api/agents/conversations/{id}/draft-run  { agentId? } → { objective, agentId }
 ```
 
-Listenantwort: Auszug der letzten Nachricht und Zeitstempel. Erwähnte Agenten müssen Teilnehmer sein; sonst 400. Archivierung wie bei Agenten.
+Liste: `lastMessageExcerpt`, `lastMessageAt`, Teilnehmer mit Id und aktuellem Namen. Create: fehlt Titel → aus Teilnehmernamen. Mindestens ein Teilnehmer; alle Agenten müssen existieren und nicht archiviert sein.
 
-**Adressierung:** `mentions` = Agent-Ids. Wer erwähnt wird, antwortet. Leere Liste = Nachricht wird gespeichert, niemand läuft (Notiz). `@name` → Id löst die UI auf, nicht der Server.
+**Mentions:** Ids müssen Teilnehmer sein, sonst `mention_not_participant`. Wer erwähnt wird, bekommt genau eine Antwort-Runde (Tool-Loop wie Run, aber siehe Werkzeuge). Mehrere Mentions → **nacheinander** in Mention-Reihenfolge (eine Rechnung/Transparenz nach der anderen; parallel wäre undurchsichtiger). Leere Mentions → speichern, kein Loop (Notiz). `@name` → Id nur in der UI.
 
-**Werkzeuge in Gesprächen:** immer nur `read_file` (wenn Workspace aktiv), gegen denselben konfigurierten Workspace-Remote wie Runs, read-only auf einem gemeinsamen Checkout von `BaseRef` — kein Worktree pro Gespräch, kein `write_file`, kein `run_shell`, kein Push. Die `AllowedTools` des Agenten gelten für Runs; in Gesprächen werden Schreib-/Shell-Werkzeuge nie angeboten, auch wenn sie am Agenten stehen. Fehlt Workspace-Konfiguration, antworten Gesprächs-Agenten ohne Dateizugriff.
+**SSE:** dieselbe Ereignismenge wie Runs (`status`/`message`/`usage`/`error`/`done`), Bus keyed by conversation id (eigenes `IConversationEventBus` oder generic bus by Guid). `streamId` in der 202-Antwort korreliert die UI-Optimistic-Message; steht nicht in der URL. Eine EventSource-Verbindung je geöffnetem Gespräch.
 
-**Draft run:** Die UI ruft den Draft-Endpunkt auf (optional mit bevorzugtem `agentId` unter den Teilnehmern; sonst wählt 3b einen). Antwort: `{ objective, agentId }`. Dialog zum Bestätigen/Editieren von Objective und Agent, dann `POST /api/agents/runs` mit Objective, `agentId` und optionalem `conversationId`.
+Verworfen: *alle antworten immer*; *Moderator wählt* — später über Mentions-Belegung.
 
-**Ströme:** `EventSource` nur GET → `POST` Nachricht liefert `202` + `streamId`, dann `GET .../stream`. Eine Verbindung je geöffnetem Gespräch. Conversation-SSE soll dieselben Ereignisnamen wie Runs nutzen, wo möglich, damit ein Transcript-Reducer reicht. Die UI v1 muss mit dem heutigen Run-Ereignissatz (`status` | `message` | `usage` | `error` | `done`) auskommen; spätere `token`/`tool`-Ereignisse sind optional aufnehmbar.
+### Gespräche — Runtime
 
-Verworfen für Mentions: *alle antworten immer* und *Moderator-Agent wählt* — später nachrüstbar über andere Belegung von `mentions`.
+```
+POST messages → persist User message
+            → if mentions empty: done
+            → else enqueue ConversationReplyJob(conversationId, streamId, agentIds[])
+ConversationWorker → for each agentId in order:
+                       ConversationLoop (LLM + read_file only)
+                       publish message/usage/… on conversation bus
+                     → publish done
+```
 
+`ConversationLoop` spiegelt `RunLoop`, Unterschiede:
+
+1. **Werkzeuge:** dem LLM nur `read_file` anbieten, wenn `Workspace:Enabled`; sonst keine Tools. Niemals `write_file` / `run_shell`, unabhängig von `AllowedTools` des Agenten.
+2. **Workspace:** kein Worktree. Vor dem Loop: Clone/Fetch sicherstellen; Arbeitsverzeichnis = konfigurierter `LocalPath` Checkout auf `BaseRef` (shared, read-only für Tools). `ReadFileTool` liest über einen Conversation-Session-Kontext mit Root = `LocalPath` (Pfadjail wie heute). Kein Push, kein Cleanup-Worktree.
+3. **System-Prompt:** aktueller Prompt des Agenten (kein eingefrorener Snapshot nötig für Chat; Name für `SenderName` zum Antwortzeitpunkt).
+4. **MaxTurns / Model / Temperature:** vom Agenten wie bei Runs.
+5. Kein Run-Status; Conversation bleibt „offen“. Fehler einer Reply → `error`-Event + weiter mit nächstem Mention oder `done`.
+
+Draft-Run: synchroner LLM-Aufruf (kein Stream nötig) mit Gesprächsverlauf und Anweisung, ein knappes Objective vorzuschlagen. Optionaler `agentId` muss Teilnehmer sein; sonst erster Teilnehmer. Antwort JSON/Text → `{ objective, agentId }`. Kein Run wird dabei angelegt.
+
+### Tests (Backend)
+
+Unit: Conversation-Domain, Service (Mentions-Validierung, Archiv), Loop mit Fake-LLM und Fake-Git/Workspace. Integration: CRUD, Note ohne Mention, Mention startet Reply (Fake LLM), Draft-Run, Create Run mit `conversationId`, `q` auf Definitions.
 ## Technik und Auslieferung
 
 React 19, TypeScript, Vite, Tailwind 4, react-router 7, Vitest mit Testing Library — Stack wie `aae`. Blazor bleibt verworfen (beherrschter Chat-/Stream-Stack wiegt hier mehr als eine Toolchain).
@@ -244,21 +272,19 @@ a11y: Verlauf `role="log"` `aria-live="polite"`, Labels, Tabellenköpfe, Fokus i
 
 ## Fertigstellungskriterien
 
-1. `npm run build`, `npm run lint` und `npm test` ohne Fehler und ohne Warnungen.
-2. Agent anlegen, bearbeiten, archivieren; archivierter fehlt in der Liste, per Id erreichbar.
-3. Run starten; Verlauf über Messages + Stream; Werkzeugkarten; Protokoll-Umschalter; Abbrechen und zweiter Abbruch mit `run_invalid_transition` / Konflikt-Meldung.
-4. Gruppengespräch mit mehreren Agenten; `@` adressiert; Absender an Name und Farbe unterscheidbar.
-5. Nachricht ohne Erwähnung wird gespeichert und als nicht adressiert gekennzeichnet.
-6. Draft run schlägt Objective vor; nach Bestätigung entsteht ein Run mit optionalem `conversationId`; Run-Detail verlinkt zurück.
-7. Jeder Fall der Fehlertabelle ist durch einen Test belegt.
+1. `dotnet test` (Agents.Unit + Host.Integration) sowie `npm run build`, `npm run lint` und `npm test` ohne Fehler und ohne Warnungen.
+2. Agent anlegen, bearbeiten, archivieren; Suche über `q`; archivierter fehlt in der Liste, per Id erreichbar.
+3. Run starten; Verlauf über Messages + Stream; Werkzeugkarten; Protokoll-Umschalter; Abbrechen und zweiter Abbruch mit `run_invalid_transition` / Konflikt-Meldung; optional `conversationId` am Run.
+4. Gruppengespräch mit mehreren Agenten; `@` adressiert; Absender an Name und Farbe unterscheidbar; Conversation-Agent darf `read_file` (wenn Workspace an), niemals schreiben/shell.
+5. Nachricht ohne Erwähnung wird gespeichert und als nicht adressiert gekennzeichnet; kein LLM-Lauf.
+6. Draft run schlägt Objective vor; nach Bestätigung entsteht ein Run mit `conversationId`; Run-Detail verlinkt zurück.
+7. Jeder Fall der Fehlertabelle ist durch einen Test belegt (API und/oder UI).
 8. Host liefert das Frontend; Neuladen auf `/agents/runs/:id` kein 404.
 9. Bereichsnavigation = `/api/areas` ∩ Registry.
 
-Kriterien 4–6 setzen 3b voraus.
-
 ## Annahmen
 
-- Teilprojekte 1–4 sind umgesetzt; 3b liefert Gespräche, Draft-Run, `q`, optionales `conversationId` und read-only `read_file` auf gemeinsamem `BaseRef`-Checkout.
+- Teilprojekte 1–4 sind umgesetzt. Gespräche, Draft-Run, `q`, `conversationId` und der read-only Conversation-Loop sind Teil dieses Vorhabens (siehe Backend-Abschnitt und Plan).
 - Host: ein Besitzer (`LocalSingleUser`); keine Anmeldemaske.
 - Node/npm auf dem Entwicklungsrechner; Entwicklung unter Windows.
 - Ströme ungepuffert (Host und Vite-Proxy).
