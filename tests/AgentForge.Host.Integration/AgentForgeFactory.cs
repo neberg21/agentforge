@@ -1,3 +1,4 @@
+using AgentForge.Areas.Agents.Runtime.Llm;
 using AgentForge.Areas.Agents.Runtime.Queue;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -9,15 +10,40 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentForge.Host.Integration;
 
-public sealed class AgentForgeFactory : WebApplicationFactory<Program>
+public class AgentForgeFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _connection;
+    private readonly bool _enableRunExecution;
+    private readonly ILlmClient? _llmOverride;
+    private readonly string? _tempDbPath;
+    private readonly SqliteConnection? _memoryConnection;
 
     public AgentForgeFactory()
+        : this(enableRunExecution: false, llmOverride: null)
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
     }
+
+    protected AgentForgeFactory(bool enableRunExecution, ILlmClient? llmOverride)
+    {
+        _enableRunExecution = enableRunExecution;
+        _llmOverride = llmOverride;
+
+        if (enableRunExecution)
+        {
+            _tempDbPath = Path.Combine(Path.GetTempPath(), $"agentforge-test-{Guid.NewGuid():N}.db");
+        }
+        else
+        {
+            _memoryConnection = new SqliteConnection("Data Source=:memory:");
+            _memoryConnection.Open();
+
+            using var pragma = _memoryConnection.CreateCommand();
+            pragma.CommandText = "PRAGMA foreign_keys = ON;";
+            pragma.ExecuteNonQuery();
+        }
+    }
+
+    public static AgentForgeFactory ForRunExecution(ILlmClient? llmOverride = null) =>
+        new(enableRunExecution: true, llmOverride);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -39,12 +65,35 @@ public sealed class AgentForgeFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IDbProvider>();
-            services.AddSingleton<IDbProvider>(new SharedConnectionDbProvider(_connection));
 
-            // Keep existing endpoint tests deterministic: create stays Pending until Task 8
-            // execution coverage opts into the real channel queue.
-            services.RemoveAll<IRunQueue>();
-            services.AddSingleton<IRunQueue, NoOpRunQueue>();
+            if (_enableRunExecution)
+            {
+                var path = _tempDbPath!;
+                services.AddSingleton<IDbProvider>(new FileSqliteDbProvider(path));
+            }
+            else
+            {
+                services.AddSingleton<IDbProvider>(new SharedConnectionDbProvider(_memoryConnection!));
+            }
+
+            if (!_enableRunExecution)
+            {
+                services.RemoveAll<IRunQueue>();
+                services.AddSingleton<IRunQueue, NoOpRunQueue>();
+            }
+
+            if (_llmOverride is not null)
+            {
+                services.RemoveAll<ILlmClient>();
+                services.AddSingleton(_llmOverride);
+            }
+            else if (_enableRunExecution)
+            {
+                services.RemoveAll<ILlmClient>();
+                var result = new LlmCompletionResult("OK", [], new LlmUsage(1, 1));
+                var llm = new DelayedScriptedLlmClient([result], TimeSpan.FromMilliseconds(300));
+                services.AddSingleton<ILlmClient>(llm);
+            }
         });
     }
 
@@ -54,7 +103,17 @@ public sealed class AgentForgeFactory : WebApplicationFactory<Program>
 
         if (disposing)
         {
-            _connection.Dispose();
+            _memoryConnection?.Dispose();
+            if (_tempDbPath is not null && File.Exists(_tempDbPath))
+            {
+                try
+                {
+                    File.Delete(_tempDbPath);
+                }
+                catch (IOException)
+                {
+                }
+            }
         }
     }
 
@@ -68,5 +127,21 @@ public sealed class AgentForgeFactory : WebApplicationFactory<Program>
         }
 
         public void Apply(DbContextOptionsBuilder options) => options.UseSqlite(_connection);
+    }
+
+    private sealed class FileSqliteDbProvider : IDbProvider
+    {
+        private readonly string _path;
+
+        public FileSqliteDbProvider(string path)
+        {
+            _path = path;
+        }
+
+        public void Apply(DbContextOptionsBuilder options)
+        {
+            var connectionString = $"Data Source={_path};Cache=Shared";
+            options.UseSqlite(connectionString);
+        }
     }
 }
