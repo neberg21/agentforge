@@ -7,6 +7,7 @@ type Props = {
   participants: ParticipantDto[]
   required?: boolean
   className?: string
+  onSubmit?: () => void
 }
 
 type ActiveQuery = {
@@ -23,7 +24,14 @@ function findActiveQuery(value: string, caret: number): ActiveQuery | null {
   return { start: match.index, query: match[1] ?? '' }
 }
 
-export function MentionTextarea({ value, onChange, participants, required, className }: Props) {
+export function MentionTextarea({
+  value,
+  onChange,
+  participants,
+  required,
+  className,
+  onSubmit,
+}: Props) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const [caret, setCaret] = useState(0)
   const [open, setOpen] = useState(false)
@@ -73,27 +81,32 @@ export function MentionTextarea({ value, onChange, participants, required, class
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (!open || options.length === 0) {
-      return
+    if (open && options.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setHighlight((current) => (current + 1) % options.length)
+        return
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setHighlight((current) => (current - 1 + options.length) % options.length)
+        return
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault()
+        insertMention(options[highlight]!.name)
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setOpen(false)
+        return
+      }
     }
-    if (event.key === 'ArrowDown') {
+
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      setHighlight((current) => (current + 1) % options.length)
-      return
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      setHighlight((current) => (current - 1 + options.length) % options.length)
-      return
-    }
-    if (event.key === 'Enter' || event.key === 'Tab') {
-      event.preventDefault()
-      insertMention(options[highlight]!.name)
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      setOpen(false)
+      onSubmit?.()
     }
   }
 

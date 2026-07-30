@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import {
   createConversation,
@@ -153,6 +153,7 @@ export function ConversationPage() {
   const [draftAgentId, setDraftAgentId] = useState('')
   const [createdDrafts, setCreatedDrafts] = useState<Record<string, string>>({})
   const [state, dispatch] = useReducer(transcriptReducer, undefined, emptyTranscript)
+  const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     if (!id) {
@@ -316,13 +317,20 @@ export function ConversationPage() {
         })}
       </div>
       {hint ? <p className="text-sm text-[var(--muted)]">{hint}</p> : null}
-      <form className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={(e) => void onSend(e)}>
+      <form
+        ref={formRef}
+        className="space-y-2 border-t border-[var(--border)] pt-3"
+        onSubmit={(e) => void onSend(e)}
+      >
         <MentionTextarea
           className="min-h-24 w-full rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
           value={content}
           onChange={setMessage}
           participants={conversation.participants}
           required
+          onSubmit={() => {
+            formRef.current?.requestSubmit()
+          }}
         />
         <button type="submit" className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white">
           Send
