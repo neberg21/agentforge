@@ -53,4 +53,11 @@ describe('transcriptReducer', () => {
     expect(state.error).toBe('boom')
     expect(state.done).toBe(true)
   })
+
+  it('handles error events with missing data without throwing', () => {
+    const state = emptyTranscript()
+    const next = transcriptReducer(state, { type: 'sse', event: 'error', data: undefined })
+    expect(next.error).toBe('error')
+    expect(next.done).toBe(true)
+  })
 })

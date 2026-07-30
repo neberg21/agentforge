@@ -66,8 +66,8 @@ export function transcriptReducer(state: TranscriptState, action: TranscriptActi
         return { ...state, usage: data }
       }
       if (action.event === 'error') {
-        const data = action.data as { message?: string }
-        return { ...state, error: data.message ?? 'error', done: true }
+        const data = action.data as { message?: string } | null | undefined
+        return { ...state, error: data?.message ?? 'error', done: true }
       }
       if (action.event === 'done') {
         return { ...state, done: true }

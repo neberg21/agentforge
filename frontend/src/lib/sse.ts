@@ -9,6 +9,11 @@ export function openEventSource(
   const types = ['status', 'message', 'usage', 'error', 'done']
   for (const type of types) {
     source.addEventListener(type, (event) => {
+      // Native EventSource connection failures also use the name "error" and are
+      // plain Events (no data). Only forward real SSE message payloads.
+      if (!(event instanceof MessageEvent)) {
+        return
+      }
       const message = event as MessageEvent<string>
       let data: unknown = message.data
       try {
