@@ -27,6 +27,7 @@ import { AgentDraftCard } from './AgentDraftCard'
 import { parseAgentDraft, stripAgentDraftFence } from './agentDraft'
 import { autoMentionPosition } from './mentionConfig'
 import { prepareOutgoingMessage } from './mentions'
+import { isNearBottom } from './scrollStickiness'
 import type { ApiError } from '../../lib/http'
 
 function senderColor(agentId: string): string {
@@ -154,6 +155,22 @@ export function ConversationPage() {
   const [createdDrafts, setCreatedDrafts] = useState<Record<string, string>>({})
   const [state, dispatch] = useReducer(transcriptReducer, undefined, emptyTranscript)
   const formRef = useRef<HTMLFormElement>(null)
+  const logRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
+
+  const orderedMessages = messagesInOrder(state).filter((message) => message.role !== 'System')
+  const messageIds = orderedMessages.map((message) => message.id).join(',')
+
+  useEffect(() => {
+    if (!stickToBottomRef.current) {
+      return
+    }
+    const el = logRef.current
+    if (!el) {
+      return
+    }
+    el.scrollTop = el.scrollHeight
+  }, [messageIds])
 
   useEffect(() => {
     if (!id) {
@@ -265,10 +282,20 @@ export function ConversationPage() {
   return (
     <div className="flex h-full flex-col gap-4">
       <h1 className="text-xl font-semibold">{conversation.title}</h1>
-      <div className="flex-1 space-y-3 overflow-auto" role="log" aria-live="polite">
-        {messagesInOrder(state)
-          .filter((message) => message.role !== 'System')
-          .map((message) => {
+      <div
+        ref={logRef}
+        className="flex-1 space-y-3 overflow-auto"
+        role="log"
+        aria-live="polite"
+        onScroll={() => {
+          const el = logRef.current
+          if (!el) {
+            return
+          }
+          stickToBottomRef.current = isNearBottom(el.scrollTop, el.clientHeight, el.scrollHeight)
+        }}
+      >
+        {orderedMessages.map((message) => {
           const rawContent = message.content ?? ''
           const parsed =
             message.role === 'Assistant'
