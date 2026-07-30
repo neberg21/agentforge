@@ -40,6 +40,9 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -48,6 +51,28 @@ if (app.Environment.IsDevelopment())
 
 app.MapHostEndpoints();
 app.MapAreas();
+
+app.MapFallback(async (HttpContext context, IWebHostEnvironment environment) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api")
+        || context.Request.Path.StartsWithSegments("/_health")
+        || context.Request.Path.StartsWithSegments("/openapi")
+        || context.Request.Path.StartsWithSegments("/scalar"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var file = environment.WebRootFileProvider.GetFileInfo("index.html");
+    if (!file.Exists)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.SendFileAsync(file);
+});
 
 await app.MigrateAreasAsync();
 
