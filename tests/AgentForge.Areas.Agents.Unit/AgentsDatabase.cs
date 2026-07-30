@@ -20,7 +20,7 @@ public sealed class AgentsDatabase : IDisposable
         CurrentUser = new TestCurrentUser(ownerId);
 
         using var context = NewContext();
-        context.Database.EnsureCreated();
+        context.Database.Migrate();
     }
 
     public TestCurrentUser CurrentUser { get; }

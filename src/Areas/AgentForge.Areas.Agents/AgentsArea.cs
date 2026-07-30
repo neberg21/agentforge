@@ -9,6 +9,7 @@ using AgentForge.Areas.Agents.Runtime.Queue;
 using AgentForge.Areas.Agents.Runtime.Tools;
 using AgentForge.Areas.Agents.Runtime.Workspace;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -93,7 +94,7 @@ public sealed class AgentsArea : IArea
     }
 
     public Task MigrateAsync(IServiceProvider services, CancellationToken cancellationToken) =>
-        services.GetRequiredService<AgentsDbContext>().Database.EnsureCreatedAsync(cancellationToken);
+        services.GetRequiredService<AgentsDbContext>().Database.MigrateAsync(cancellationToken);
 
     private static void RegisterLlmClient(IServiceCollection services, IConfiguration configuration)
     {
