@@ -34,19 +34,27 @@ describe('parseAgentDraft', () => {
   })
 
   it('returns missing when no fence', () => {
-    expect(parseAgentDraft('just chat').ok).toBe(false)
-    if (parseAgentDraft('just chat').ok) return
-    expect(parseAgentDraft('just chat').reason).toBe('missing')
+    const result = parseAgentDraft('just chat')
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toBe('missing')
   })
 
   it('returns invalid when JSON is broken or required fields empty', () => {
-    expect(parseAgentDraft(fence('{')).reason).toBe('invalid')
-    expect(parseAgentDraft(fence('{"name":"","systemPrompt":"x"}')).reason).toBe(
-      'invalid',
-    )
-    expect(parseAgentDraft(fence('{"name":"A","systemPrompt":""}')).reason).toBe(
-      'invalid',
-    )
+    const broken = parseAgentDraft(fence('{'))
+    expect(broken.ok).toBe(false)
+    if (broken.ok) return
+    expect(broken.reason).toBe('invalid')
+
+    const emptyName = parseAgentDraft(fence('{"name":"","systemPrompt":"x"}'))
+    expect(emptyName.ok).toBe(false)
+    if (emptyName.ok) return
+    expect(emptyName.reason).toBe('invalid')
+
+    const emptyPrompt = parseAgentDraft(fence('{"name":"A","systemPrompt":""}'))
+    expect(emptyPrompt.ok).toBe(false)
+    if (emptyPrompt.ok) return
+    expect(emptyPrompt.reason).toBe('invalid')
   })
 })
 
