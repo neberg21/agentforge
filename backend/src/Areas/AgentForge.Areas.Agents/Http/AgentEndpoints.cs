@@ -38,5 +38,17 @@ public static class AgentEndpoints
 
         group.MapDelete("/{id:guid}", async (AgentService service, Guid id, CancellationToken ct) =>
             (await service.ArchiveAsync(id, ct)).ToHttpResult(agent => TypedResults.Ok(AgentResponse.From(agent))));
+
+        routes.MapPost("/builder/session", async (BuilderSessionService service, CancellationToken ct) =>
+        {
+            var started = await service.StartAsync(ct);
+            return started.ToHttpResult(session =>
+            {
+                var response = BuilderSessionResponse.From(session);
+                return TypedResults.Created(
+                    $"/api/agents/conversations/{session.ConversationId}",
+                    response);
+            });
+        });
     }
 }

@@ -166,4 +166,10 @@ public sealed record PostMessageAcceptedResponse(Guid StreamId);
 
 public sealed record DraftRunResponse(string Objective, Guid AgentId);
 
+public sealed record BuilderSessionResponse(Guid ConversationId, Guid BuilderAgentId)
+{
+    public static BuilderSessionResponse From(BuilderSession session) =>
+        new(session.ConversationId, session.BuilderAgentId);
+}
+
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int Total, int Skip, int Take);
