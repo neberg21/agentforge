@@ -108,4 +108,23 @@ public sealed class AgentEndpointTests : IDisposable
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("concurrency_conflict", await ApiClient.ReadErrorCodeAsync(response, ct));
     }
+
+    [Fact]
+    public async Task AgentSuggestions_WhenCalled_ReturnsUnusedName()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var client = _factory.CreateClient();
+
+        var suggestions = await client.GetFromJsonAsync<AgentSuggestionsResponse>(
+            "/api/agents/definitions/suggestions",
+            ct);
+
+        Assert.False(string.IsNullOrWhiteSpace(suggestions!.Name));
+
+        using var created = await client.PostAsJsonAsync(
+            "/api/agents/definitions",
+            ApiClient.NewAgent(suggestions.Name),
+            ct);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+    }
 }
