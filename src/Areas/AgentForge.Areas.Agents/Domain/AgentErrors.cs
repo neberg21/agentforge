@@ -22,4 +22,15 @@ public static class AgentErrors
 
     public static Error InvalidTransition(RunStatus from, RunStatus to) =>
         new(ErrorKind.Conflict, "run_invalid_transition", $"Ein Run im Status {from} kann nicht nach {to} wechseln.");
+
+    public static Error ConversationNotFound(Guid id) =>
+        new(ErrorKind.NotFound, "conversation_not_found", $"Conversation {id} wurde nicht gefunden.");
+
+    public static Error ConversationArchived(Guid id) =>
+        new(ErrorKind.Conflict, "conversation_archived",
+            $"Conversation {id} ist archiviert und nimmt keine neuen Nachrichten an.");
+
+    public static Error MentionNotParticipant() =>
+        new(ErrorKind.Validation, "mention_not_participant",
+            "Erwaehnte Agenten muessen Teilnehmer des Gespraechs sein.");
 }

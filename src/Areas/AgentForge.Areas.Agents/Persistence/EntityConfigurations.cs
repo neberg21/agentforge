@@ -101,3 +101,66 @@ internal sealed class RunMessageConfiguration : IEntityTypeConfiguration<RunMess
         builder.HasIndex(message => new { message.RunId, message.Sequence }).IsUnique();
     }
 }
+
+internal sealed class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
+{
+    public void Configure(EntityTypeBuilder<Conversation> builder)
+    {
+        builder.ToTable(AgentsDbContext.TablePrefix + "conversation");
+        builder.HasKey(conversation => conversation.Id);
+
+        builder.Property(conversation => conversation.OwnerId).HasMaxLength(100).IsRequired();
+        builder.Property(conversation => conversation.Title).HasMaxLength(200).IsRequired();
+        builder.Property(conversation => conversation.ConcurrencyToken).IsConcurrencyToken();
+
+        builder.HasMany(conversation => conversation.Participants)
+            .WithOne()
+            .HasForeignKey(participant => participant.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(conversation => conversation.Participants)
+            .HasField("_participants")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(conversation => conversation.Messages)
+            .WithOne()
+            .HasForeignKey(message => message.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(conversation => conversation.Messages)
+            .HasField("_messages")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasIndex(conversation => conversation.OwnerId);
+    }
+}
+
+internal sealed class ConversationMessageConfiguration : IEntityTypeConfiguration<ConversationMessage>
+{
+    public void Configure(EntityTypeBuilder<ConversationMessage> builder)
+    {
+        builder.ToTable(AgentsDbContext.TablePrefix + "conversation_message");
+        builder.HasKey(message => message.Id);
+
+        builder.Property(message => message.OwnerId).HasMaxLength(100).IsRequired();
+        builder.Property(message => message.Role).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(message => message.ToolCallId).HasMaxLength(100);
+        builder.Property(message => message.SenderName).HasMaxLength(100);
+
+        builder.HasIndex(message => new { message.ConversationId, message.Sequence }).IsUnique();
+    }
+}
+
+internal sealed class ConversationParticipantConfiguration : IEntityTypeConfiguration<ConversationParticipant>
+{
+    public void Configure(EntityTypeBuilder<ConversationParticipant> builder)
+    {
+        builder.ToTable(AgentsDbContext.TablePrefix + "conversation_participant");
+        builder.HasKey(participant => new { participant.ConversationId, participant.AgentId });
+
+        builder.HasOne<Agent>()
+            .WithMany()
+            .HasForeignKey(participant => participant.AgentId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

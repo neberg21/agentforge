@@ -22,6 +22,12 @@ public sealed class AgentsDbContext : DbContext
 
     public DbSet<RunMessage> RunMessages => Set<RunMessage>();
 
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+
+    public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
+
+    public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
+
     private string OwnerId => _currentUser.OwnerId;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -29,9 +35,14 @@ public sealed class AgentsDbContext : DbContext
         modelBuilder.ApplyConfiguration(new AgentConfiguration());
         modelBuilder.ApplyConfiguration(new RunConfiguration());
         modelBuilder.ApplyConfiguration(new RunMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new ConversationConfiguration());
+        modelBuilder.ApplyConfiguration(new ConversationMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new ConversationParticipantConfiguration());
 
         modelBuilder.Entity<Agent>().HasQueryFilter(agent => agent.OwnerId == OwnerId);
         modelBuilder.Entity<Run>().HasQueryFilter(run => run.OwnerId == OwnerId);
         modelBuilder.Entity<RunMessage>().HasQueryFilter(message => message.OwnerId == OwnerId);
+        modelBuilder.Entity<Conversation>().HasQueryFilter(conversation => conversation.OwnerId == OwnerId);
+        modelBuilder.Entity<ConversationMessage>().HasQueryFilter(message => message.OwnerId == OwnerId);
     }
 }
