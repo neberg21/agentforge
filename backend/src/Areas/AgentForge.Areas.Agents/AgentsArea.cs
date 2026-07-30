@@ -80,6 +80,8 @@ public sealed class AgentsArea : IArea
         RegisterLlmClient(services, configuration);
 
         services.AddScoped<AgentService>();
+        services.AddSingleton<IAgentNameCandidateSource, BogusGermanFirstNameSource>();
+        services.AddScoped<AgentSuggestionService>();
         services.AddScoped<RunService>();
         services.AddScoped<ConversationService>();
         services.AddScoped<BuilderSessionService>();
