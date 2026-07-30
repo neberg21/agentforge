@@ -3,7 +3,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class RunTransitionsTests
 {
     [Fact]
-    public void Pending_darf_nach_Cancelled() =>
+    public void IsAllowed_WhenPendingToCancelled_ReturnsTrue() =>
         Assert.True(RunTransitions.IsAllowed(RunStatus.Pending, RunStatus.Cancelled));
 
     [Theory]
@@ -16,6 +16,6 @@ public class RunTransitionsTests
     [InlineData(RunStatus.Completed, RunStatus.Cancelled)]
     [InlineData(RunStatus.Failed, RunStatus.Running)]
     [InlineData(RunStatus.Cancelled, RunStatus.Pending)]
-    public void Alle_uebrigen_Uebergaenge_sind_in_dieser_Ausbaustufe_gesperrt(RunStatus from, RunStatus to) =>
+    public void IsAllowed_WhenTransitionNotYetSupported_ReturnsFalse(RunStatus from, RunStatus to) =>
         Assert.False(RunTransitions.IsAllowed(from, to));
 }

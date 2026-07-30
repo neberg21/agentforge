@@ -7,7 +7,7 @@ public sealed class RunEndpointTests : IDisposable
     public void Dispose() => _factory.Dispose();
 
     [Fact]
-    public async Task Ein_Run_wird_wartend_angelegt_und_traegt_zwei_Nachrichten()
+    public async Task Runs_WhenCreated_ArePendingWithTwoMessages()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -31,7 +31,7 @@ public sealed class RunEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Der_Snapshot_bleibt_stehen_wenn_der_Agent_sich_aendert()
+    public async Task Runs_WhenAgentUpdated_KeepFrozenSnapshot()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -54,7 +54,7 @@ public sealed class RunEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_Run_laesst_sich_abbrechen_aber_nicht_zweimal()
+    public async Task Runs_WhenCancelledTwice_SecondReturnsConflict()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -86,7 +86,7 @@ public sealed class RunEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_archivierter_Agent_nimmt_keine_neuen_Runs_an()
+    public async Task Runs_WhenAgentArchived_RejectNewRuns()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -105,7 +105,7 @@ public sealed class RunEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_unbekannter_Run_ergibt_404()
+    public async Task Runs_WhenUnknown_ReturnsNotFound()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -117,7 +117,7 @@ public sealed class RunEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Runs_lassen_sich_nach_Agent_und_Status_filtern()
+    public async Task Runs_WhenFiltered_RespectAgentAndStatus()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();

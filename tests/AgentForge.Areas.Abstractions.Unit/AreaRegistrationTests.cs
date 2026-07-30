@@ -19,7 +19,7 @@ public class AreaRegistrationTests
     }
 
     [Fact]
-    public void AddAreaSupport_vor_AddArea_liefert_genau_eine_Registry()
+    public void AddAreaSupport_WhenCalledBeforeAddArea_SharesSingleRegistry()
     {
         var builder = WebApplication.CreateBuilder();
 
@@ -35,7 +35,7 @@ public class AreaRegistrationTests
     }
 
     [Fact]
-    public void AddArea_vor_AddAreaSupport_liefert_genau_eine_Registry()
+    public void AddArea_WhenCalledBeforeAddAreaSupport_SharesSingleRegistry()
     {
         var builder = WebApplication.CreateBuilder();
 

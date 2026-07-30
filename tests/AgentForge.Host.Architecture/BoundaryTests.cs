@@ -3,14 +3,14 @@ namespace AgentForge.Host.Architecture;
 public class BoundaryTests
 {
     [Fact]
-    public void Es_gibt_mindestens_einen_Bereich()
+    public void AreaPresence_WhenAssembliesScanned_FindsAtLeastOne()
     {
         Assert.NotEmpty(AreaAssemblies.All);
         Assert.NotEmpty(AreaAssemblies.AreaTypes);
     }
 
     [Fact]
-    public void Kein_Bereich_referenziert_den_Host()
+    public void AreaIsolation_WhenReferencingHost_IsForbidden()
     {
         foreach (var assembly in AreaAssemblies.All)
         {
@@ -21,12 +21,12 @@ public class BoundaryTests
 
             Assert.True(
                 offenders.Length == 0,
-                $"{assembly.GetName().Name} referenziert den Host. Bereiche kennen den Host nicht.");
+                $"{assembly.GetName().Name} references the host. Areas must not know the host.");
         }
     }
 
     [Fact]
-    public void Kein_Bereich_referenziert_einen_anderen_Bereich_ausserhalb_von_Contracts()
+    public void AreaIsolation_WhenReferencingOtherArea_IsForbiddenOutsideContracts()
     {
         foreach (var assembly in AreaAssemblies.All)
         {
@@ -42,12 +42,12 @@ public class BoundaryTests
 
             Assert.True(
                 offenders.Length == 0,
-                $"{ownName} referenziert {string.Join(", ", offenders)}. Bereiche sprechen nur ueber Contracts miteinander.");
+                $"{ownName} references {string.Join(", ", offenders)}. Areas may only talk through Contracts.");
         }
     }
 
     [Fact]
-    public void Jede_Bereichs_Assembly_enthaelt_genau_eine_IArea_Implementierung()
+    public void AreaContract_WhenAssemblyLoaded_ContainsExactlyOneIArea()
     {
         foreach (var assembly in AreaAssemblies.All)
         {
@@ -57,23 +57,23 @@ public class BoundaryTests
 
             Assert.True(
                 implementations.Length == 1,
-                $"{assembly.GetName().Name} enthaelt {implementations.Length} IArea-Implementierungen, erwartet ist genau eine.");
+                $"{assembly.GetName().Name} contains {implementations.Length} IArea implementations; exactly one is required.");
         }
     }
 
     [Fact]
-    public void Alle_Slugs_sind_formgueltig_und_eindeutig()
+    public void AreaSlug_WhenAreasRegistered_AreValidAndUnique()
     {
         var slugs = AreaAssemblies.AreaTypes
             .Select(type => ((IArea)Activator.CreateInstance(type)!).Slug)
             .ToArray();
 
-        Assert.All(slugs, slug => Assert.True(AreaSlug.IsValid(slug), $"'{slug}' ist kein gueltiger Slug."));
+        Assert.All(slugs, slug => Assert.True(AreaSlug.IsValid(slug), $"'{slug}' is not a valid slug."));
         Assert.Equal(slugs.Length, slugs.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
-    public void Core_kennt_weder_AspNetCore_noch_EntityFramework()
+    public void CorePurity_WhenInspectingReferences_ExcludesAspNetAndEf()
     {
         var offenders = typeof(Result<>).Assembly.GetReferencedAssemblies()
             .Select(reference => reference.Name!)
@@ -81,6 +81,6 @@ public class BoundaryTests
                         || name.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal))
             .ToArray();
 
-        Assert.True(offenders.Length == 0, $"Core referenziert {string.Join(", ", offenders)}.");
+        Assert.True(offenders.Length == 0, $"Core references {string.Join(", ", offenders)}.");
     }
 }

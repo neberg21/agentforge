@@ -24,7 +24,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_meldet_einen_unbekannten_Agenten()
+    public async Task CreateAsync_WhenAgentMissing_ReturnsNotFound()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -35,7 +35,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_lehnt_einen_archivierten_Agenten_ab()
+    public async Task CreateAsync_WhenAgentArchived_ReturnsConflict()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -49,7 +49,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_erzeugt_einen_wartenden_Run_mit_zwei_Nachrichten()
+    public async Task CreateAsync_WhenAgentActive_CreatesPendingRunWithTwoMessages()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -68,7 +68,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task GetAsync_meldet_einen_unbekannten_Run()
+    public async Task GetAsync_WhenMissing_ReturnsNotFound()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -79,7 +79,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task GetMessagesAsync_meldet_einen_unbekannten_Run()
+    public async Task GetMessagesAsync_WhenRunMissing_ReturnsNotFound()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -90,7 +90,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task ListAsync_filtert_nach_Agent_und_Status()
+    public async Task ListAsync_WhenFiltered_RespectsAgentAndStatus()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -113,7 +113,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task CancelAsync_setzt_den_Run_auf_abgebrochen()
+    public async Task CancelAsync_WhenPending_CancelsRun()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -129,7 +129,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task CancelAsync_lehnt_ein_veraltetes_Token_ab()
+    public async Task CancelAsync_WhenTokenStale_ReturnsConflict()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);
@@ -142,7 +142,7 @@ public class RunServiceTests
     }
 
     [Fact]
-    public async Task Ein_bereits_abgebrochener_Run_kann_nicht_erneut_abgebrochen_werden()
+    public async Task CancelAsync_WhenAlreadyCancelled_ReturnsInvalidTransition()
     {
         using var database = new AgentsDatabase();
         using var fixture = NewFixture(database);

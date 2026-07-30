@@ -6,7 +6,7 @@ public class AgentTests
         new(name, "Baut Dinge.", "Du bist hilfreich.", "some-model", 0.5, 2048, 10, ["read_file"]);
 
     [Fact]
-    public void Create_uebernimmt_die_Definition_und_setzt_Zeitstempel()
+    public void Create_WhenCalled_AppliesDefinitionAndTimestamps()
     {
         var clock = TestClock.AtEpoch();
 
@@ -25,7 +25,7 @@ public class AgentTests
     }
 
     [Fact]
-    public void Update_aendert_Felder_Zeitstempel_und_Token()
+    public void Update_WhenCalled_ChangesFieldsTimestampAndToken()
     {
         var clock = TestClock.AtEpoch();
         var agent = Agent.Create("owner-1", Definition(), clock.UtcNow);
@@ -42,7 +42,7 @@ public class AgentTests
     }
 
     [Fact]
-    public void Archive_markiert_den_Agenten_ohne_ihn_zu_entfernen()
+    public void Archive_WhenCalled_MarksArchivedWithoutRemoving()
     {
         var clock = TestClock.AtEpoch();
         var agent = Agent.Create("owner-1", Definition(), clock.UtcNow);
@@ -55,7 +55,7 @@ public class AgentTests
     }
 
     [Fact]
-    public void ToSnapshot_kopiert_die_ausfuehrungsrelevanten_Felder()
+    public void ToSnapshot_WhenCalled_CopiesExecutionFields()
     {
         var agent = Agent.Create("owner-1", Definition(), TestClock.AtEpoch().UtcNow);
 
@@ -71,7 +71,7 @@ public class AgentTests
     }
 
     [Fact]
-    public void Der_Agent_teilt_sein_Werkzeug_Array_nicht_mit_der_Definition()
+    public void Create_WhenDefinitionToolsMutate_KeepsIndependentToolArray()
     {
         var clock = TestClock.AtEpoch();
         var tools = new[] { "read_file" };

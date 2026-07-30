@@ -6,7 +6,7 @@ public class RunTests
         Agent.Create("owner-1", new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, []), clock.UtcNow);
 
     [Fact]
-    public void Create_startet_im_Status_Pending()
+    public void Create_WhenCalled_StartsPending()
     {
         var clock = TestClock.AtEpoch();
         var agent = NewAgent(clock);
@@ -27,7 +27,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Create_legt_System_und_User_Nachricht_an()
+    public void Create_WhenCalled_AddsSystemAndUserMessages()
     {
         var clock = TestClock.AtEpoch();
         var agent = NewAgent(clock);
@@ -44,7 +44,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Der_Snapshot_bleibt_unberuehrt_wenn_der_Agent_sich_aendert()
+    public void Create_WhenAgentChangesLater_SnapshotStaysFrozen()
     {
         var clock = TestClock.AtEpoch();
         var agent = NewAgent(clock);
@@ -60,7 +60,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Der_Snapshot_teilt_sein_Werkzeug_Array_nicht_mit_dem_Agenten()
+    public void Create_WhenAgentToolsMutate_SnapshotToolsStayIndependent()
     {
         var clock = TestClock.AtEpoch();
         var agent = Agent.Create(
@@ -75,7 +75,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Cancel_setzt_Status_Abschlusszeit_und_neues_Token()
+    public void Cancel_WhenPending_SetsStatusCompletedAtAndNewToken()
     {
         var clock = TestClock.AtEpoch();
         var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
@@ -89,7 +89,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Ein_abgebrochener_Run_laesst_sich_nicht_erneut_abbrechen()
+    public void Cancel_WhenAlreadyCancelled_Throws()
     {
         var clock = TestClock.AtEpoch();
         var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
@@ -100,7 +100,7 @@ public class RunTests
     }
 
     [Fact]
-    public void AppendMessage_vergibt_fortlaufende_Sequenzen()
+    public void AppendMessage_WhenCalledRepeatedly_AssignsSequentialNumbers()
     {
         var clock = TestClock.AtEpoch();
         var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
@@ -111,7 +111,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Eine_Werkzeugnachricht_ohne_ToolCallId_wird_abgelehnt()
+    public void AppendMessage_WhenToolRoleLacksToolCallId_Throws()
     {
         var clock = TestClock.AtEpoch();
         var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
@@ -120,7 +120,7 @@ public class RunTests
     }
 
     [Fact]
-    public void Nur_Werkzeugnachrichten_duerfen_eine_ToolCallId_tragen()
+    public void AppendMessage_WhenNonToolRoleHasToolCallId_Throws()
     {
         var clock = TestClock.AtEpoch();
         var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);

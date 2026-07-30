@@ -17,7 +17,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_legt_einen_Agenten_an()
+    public async Task CreateAsync_WhenDefinitionValid_CreatesAgent()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -32,7 +32,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_lehnt_einen_vergebenen_Namen_ab()
+    public async Task CreateAsync_WhenNameTaken_ReturnsConflict()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -47,7 +47,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_erlaubt_den_Namen_eines_archivierten_Agenten()
+    public async Task CreateAsync_WhenArchivedNameReused_Succeeds()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -61,7 +61,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task GetAsync_meldet_einen_unbekannten_Agenten_als_nicht_gefunden()
+    public async Task GetAsync_WhenMissing_ReturnsNotFound()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -74,7 +74,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task GetAsync_verbirgt_Agenten_fremder_Besitzer_als_nicht_gefunden()
+    public async Task GetAsync_WhenOwnedByOther_ReturnsNotFound()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -91,7 +91,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task GetAsync_findet_auch_archivierte_Agenten()
+    public async Task GetAsync_WhenArchived_ReturnsAgent()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -106,7 +106,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task ListAsync_blendet_archivierte_aus_und_liefert_die_Gesamtzahl()
+    public async Task ListAsync_WhenSomeArchived_ExcludesThemAndReportsTotal()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -123,7 +123,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task ListAsync_beachtet_Skip_und_Take()
+    public async Task ListAsync_WhenPaged_RespectsSkipAndTake()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -140,7 +140,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public void PageRequest_begrenzt_unsinnige_Werte()
+    public void From_WhenValuesOutOfRange_ClampsThem()
     {
         Assert.Equal(PageRequest.DefaultTake, PageRequest.From(null, null).Take);
         Assert.Equal(0, PageRequest.From(-5, null).Skip);
@@ -149,7 +149,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_aendert_den_Agenten_bei_passendem_Token()
+    public async Task UpdateAsync_WhenTokenMatches_UpdatesAgent()
     {
         using var database = new AgentsDatabase();
         var clock = TestClock.AtEpoch();
@@ -170,7 +170,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_lehnt_ein_veraltetes_Token_ab()
+    public async Task UpdateAsync_WhenTokenStale_ReturnsConflict()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -187,7 +187,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_lehnt_einen_fremden_Namen_ab()
+    public async Task UpdateAsync_WhenNameTaken_ReturnsConflict()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -205,7 +205,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_erlaubt_den_eigenen_Namen()
+    public async Task UpdateAsync_WhenNameUnchanged_Succeeds()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -223,7 +223,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_lehnt_einen_archivierten_Agenten_ab()
+    public async Task UpdateAsync_WhenArchived_ReturnsConflict()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());
@@ -241,7 +241,7 @@ public class AgentServiceTests
     }
 
     [Fact]
-    public async Task ArchiveAsync_ist_wiederholbar()
+    public async Task ArchiveAsync_WhenAlreadyArchived_IsIdempotent()
     {
         using var database = new AgentsDatabase();
         var (context, service) = NewService(database, TestClock.AtEpoch());

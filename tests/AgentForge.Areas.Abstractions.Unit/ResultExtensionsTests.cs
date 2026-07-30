@@ -9,7 +9,7 @@ public class ResultExtensionsTests
     [InlineData(ErrorKind.NotFound, StatusCodes.Status404NotFound)]
     [InlineData(ErrorKind.Conflict, StatusCodes.Status409Conflict)]
     [InlineData(ErrorKind.Validation, StatusCodes.Status400BadRequest)]
-    public void Fehlerarten_werden_auf_Statuscodes_abgebildet(ErrorKind kind, int expectedStatus)
+    public void ToProblem_WhenErrorKindMapped_ReturnsExpectedStatusCode(ErrorKind kind, int expectedStatus)
     {
         var result = new Error(kind, "some_code", "Beschreibung.").ToProblem();
 
@@ -20,7 +20,7 @@ public class ResultExtensionsTests
     }
 
     [Fact]
-    public void ToHttpResult_ruft_den_Erfolgszweig()
+    public void ToHttpResult_WhenSuccess_InvokesSuccessBranch()
     {
         Result<int> result = 5;
 
@@ -30,7 +30,7 @@ public class ResultExtensionsTests
     }
 
     [Fact]
-    public void ToHttpResult_uebersetzt_den_Fehlerzweig()
+    public void ToHttpResult_WhenFailure_ReturnsProblem()
     {
         Result<int> result = new Error(ErrorKind.NotFound, "missing", "Weg.");
 

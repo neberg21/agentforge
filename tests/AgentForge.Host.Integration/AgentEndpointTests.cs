@@ -7,7 +7,7 @@ public sealed class AgentEndpointTests : IDisposable
     public void Dispose() => _factory.Dispose();
 
     [Fact]
-    public async Task Ein_Agent_durchlaeuft_Anlegen_Lesen_Aendern_Listen_und_Archivieren()
+    public async Task AgentDefinitions_WhenFullLifecycle_Succeeds()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -42,7 +42,7 @@ public sealed class AgentEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_unbekannter_Agent_ergibt_404_als_ProblemDetails()
+    public async Task AgentDefinitions_WhenUnknown_ReturnsNotFoundProblemDetails()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -55,7 +55,7 @@ public sealed class AgentEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_leerer_Name_ergibt_400()
+    public async Task AgentDefinitions_WhenNameEmpty_ReturnsBadRequest()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -69,7 +69,7 @@ public sealed class AgentEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Eine_unzulaessige_Temperatur_ergibt_400()
+    public async Task AgentDefinitions_WhenTemperatureInvalid_ReturnsBadRequest()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -83,7 +83,7 @@ public sealed class AgentEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_doppelter_Name_ergibt_409()
+    public async Task AgentDefinitions_WhenNameDuplicate_ReturnsConflict()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -96,7 +96,7 @@ public sealed class AgentEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ein_veraltetes_Token_ergibt_409()
+    public async Task AgentDefinitions_WhenConcurrencyStale_ReturnsConflict()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();

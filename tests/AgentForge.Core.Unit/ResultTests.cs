@@ -3,7 +3,7 @@ namespace AgentForge.Core.Unit;
 public class ResultTests
 {
     [Fact]
-    public void Success_traegt_den_Wert_und_keinen_Fehler()
+    public void Success_WhenCreated_CarriesValueWithoutError()
     {
         Result<int> result = 42;
 
@@ -13,7 +13,7 @@ public class ResultTests
     }
 
     [Fact]
-    public void Failure_traegt_den_Fehler_und_keinen_Wert()
+    public void Failure_WhenCreated_CarriesErrorWithoutValue()
     {
         Result<int> result = new Error(ErrorKind.NotFound, "agent_not_found", "Nicht gefunden.");
 
@@ -24,7 +24,7 @@ public class ResultTests
     }
 
     [Fact]
-    public void Match_waehlt_den_passenden_Zweig()
+    public void Match_WhenInvoked_SelectsMatchingBranch()
     {
         Result<int> ok = 7;
         Result<int> bad = new Error(ErrorKind.Conflict, "conflict", "Konflikt.");

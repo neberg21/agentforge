@@ -3,7 +3,7 @@ namespace AgentForge.Host.Integration;
 public class HostEndpointTests(AgentForgeFactory factory) : IClassFixture<AgentForgeFactory>
 {
     [Fact]
-    public async Task Liveness_antwortet_mit_200()
+    public async Task Health_WhenLivenessRequested_ReturnsOk()
     {
         using var client = factory.CreateClient();
 
@@ -13,7 +13,7 @@ public class HostEndpointTests(AgentForgeFactory factory) : IClassFixture<AgentF
     }
 
     [Fact]
-    public async Task Readiness_antwortet_mit_200()
+    public async Task Health_WhenReadinessRequested_ReturnsOk()
     {
         using var client = factory.CreateClient();
 
@@ -23,7 +23,7 @@ public class HostEndpointTests(AgentForgeFactory factory) : IClassFixture<AgentF
     }
 
     [Fact]
-    public async Task Areas_liefert_die_registrierten_Bereiche()
+    public async Task Areas_WhenListed_ReturnsRegisteredSlugs()
     {
         using var client = factory.CreateClient();
 
@@ -34,7 +34,7 @@ public class HostEndpointTests(AgentForgeFactory factory) : IClassFixture<AgentF
     }
 
     [Fact]
-    public async Task Unbekannter_Pfad_antwortet_mit_404()
+    public async Task UnknownPath_WhenRequested_ReturnsNotFound()
     {
         using var client = factory.CreateClient();
 

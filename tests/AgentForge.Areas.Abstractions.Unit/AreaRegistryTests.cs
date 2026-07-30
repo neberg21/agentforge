@@ -18,7 +18,7 @@ public class AreaRegistryTests
     }
 
     [Fact]
-    public void Add_nimmt_verschiedene_Bereiche_auf()
+    public void Add_WhenSlugsDiffer_AcceptsAreas()
     {
         var registry = new AreaRegistry();
 
@@ -29,7 +29,7 @@ public class AreaRegistryTests
     }
 
     [Fact]
-    public void Add_lehnt_doppelte_Slugs_ab()
+    public void Add_WhenSlugIsDuplicate_Throws()
     {
         var registry = new AreaRegistry();
         registry.Add(new StubArea("agents"));
@@ -40,6 +40,6 @@ public class AreaRegistryTests
     }
 
     [Fact]
-    public void Add_lehnt_ungueltige_Slugs_ab() =>
+    public void Add_WhenSlugIsInvalid_Throws() =>
         Assert.Throws<InvalidOperationException>(() => new AreaRegistry().Add(new StubArea("Agents")));
 }

@@ -11,7 +11,7 @@ public class PersistenceTests
         Agent.Create(database.CurrentUser.OwnerId, Definition(name), TestClock.AtEpoch().UtcNow);
 
     [Fact]
-    public async Task Ein_Agent_ueberlebt_den_Rundlauf_durch_die_Datenbank()
+    public async Task SaveChanges_WhenAgentRoundTrips_PreservesFields()
     {
         using var database = new AgentsDatabase();
         var agent = NewAgent(database);
@@ -34,7 +34,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Der_Snapshot_eines_Runs_ueberlebt_den_Rundlauf()
+    public async Task SaveChanges_WhenRunRoundTrips_PreservesSnapshot()
     {
         using var database = new AgentsDatabase();
         var agent = NewAgent(database);
@@ -58,7 +58,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Zwei_aktive_Agenten_duerfen_nicht_denselben_Namen_tragen()
+    public async Task SaveChanges_WhenTwoActiveAgentsShareName_Throws()
     {
         using var database = new AgentsDatabase();
 
@@ -71,7 +71,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Nach_dem_Archivieren_ist_der_Name_wieder_frei()
+    public async Task SaveChanges_WhenAgentArchived_AllowsSameNameAgain()
     {
         using var database = new AgentsDatabase();
         var first = NewAgent(database);
@@ -95,7 +95,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Agenten_fremder_Besitzer_sind_unsichtbar()
+    public async Task Query_WhenOwnerDiffers_HidesForeignAgents()
     {
         using var database = new AgentsDatabase();
 
@@ -122,7 +122,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Nachrichten_verschwinden_mit_ihrem_Run()
+    public async Task SaveChanges_WhenRunDeleted_CascadesMessages()
     {
         using var database = new AgentsDatabase();
         var agent = NewAgent(database);
@@ -145,7 +145,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Ein_Agent_mit_Runs_laesst_sich_nicht_loeschen()
+    public async Task SaveChanges_WhenAgentHasRuns_RejectsDelete()
     {
         using var database = new AgentsDatabase();
         var agent = NewAgent(database);
@@ -167,7 +167,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task Ein_veraltetes_Token_verhindert_das_Speichern()
+    public async Task SaveChanges_WhenConcurrencyTokenStale_Throws()
     {
         using var database = new AgentsDatabase();
         var clock = TestClock.AtEpoch();

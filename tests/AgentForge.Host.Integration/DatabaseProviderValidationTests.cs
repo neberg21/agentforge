@@ -6,7 +6,7 @@ namespace AgentForge.Host.Integration;
 public class DatabaseProviderValidationTests(AgentForgeFactory factory) : IClassFixture<AgentForgeFactory>
 {
     [Fact]
-    public void Postgres_wird_beim_Start_abgelehnt()
+    public void Database_WhenProviderIsPostgres_RejectsStartup()
     {
         using var postgresFactory = factory.WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, configuration) =>
