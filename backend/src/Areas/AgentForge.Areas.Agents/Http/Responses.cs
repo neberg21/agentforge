@@ -136,10 +136,19 @@ public sealed record ConversationMessageResponse(
     string? ToolCallId,
     Guid? SenderAgentId,
     string? SenderName,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    Guid[]? Mentions)
 {
-    public static ConversationMessageResponse From(ConversationMessage message) =>
-        new(
+    public static ConversationMessageResponse From(ConversationMessage message)
+    {
+        Guid[]? mentions = null;
+        if (!string.IsNullOrWhiteSpace(message.MentionsJson))
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<Guid[]>(message.MentionsJson);
+            mentions = parsed is { Length: > 0 } ? parsed : null;
+        }
+
+        return new ConversationMessageResponse(
             message.Id,
             message.Sequence,
             message.Role.ToString(),
@@ -148,7 +157,9 @@ public sealed record ConversationMessageResponse(
             message.ToolCallId,
             message.SenderAgentId,
             message.SenderName,
-            message.CreatedAt);
+            message.CreatedAt,
+            mentions);
+    }
 }
 
 public sealed record PostMessageAcceptedResponse(Guid StreamId);
