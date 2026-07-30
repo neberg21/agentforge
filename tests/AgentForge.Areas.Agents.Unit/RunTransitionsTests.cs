@@ -5,6 +5,7 @@ public class RunTransitionsTests
     [Theory]
     [InlineData(RunStatus.Pending, RunStatus.Running)]
     [InlineData(RunStatus.Pending, RunStatus.Cancelled)]
+    [InlineData(RunStatus.Pending, RunStatus.Failed)]
     [InlineData(RunStatus.Running, RunStatus.Completed)]
     [InlineData(RunStatus.Running, RunStatus.Failed)]
     [InlineData(RunStatus.Running, RunStatus.Cancelled)]
@@ -13,7 +14,6 @@ public class RunTransitionsTests
 
     [Theory]
     [InlineData(RunStatus.Pending, RunStatus.Completed)]
-    [InlineData(RunStatus.Pending, RunStatus.Failed)]
     [InlineData(RunStatus.Pending, RunStatus.Pending)]
     [InlineData(RunStatus.Running, RunStatus.Pending)]
     [InlineData(RunStatus.Running, RunStatus.Running)]

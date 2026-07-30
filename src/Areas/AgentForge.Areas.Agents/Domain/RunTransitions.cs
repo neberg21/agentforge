@@ -4,7 +4,7 @@ public static class RunTransitions
 {
     private static readonly Dictionary<RunStatus, RunStatus[]> Allowed = new()
     {
-        [RunStatus.Pending] = [RunStatus.Running, RunStatus.Cancelled],
+        [RunStatus.Pending] = [RunStatus.Running, RunStatus.Cancelled, RunStatus.Failed],
         [RunStatus.Running] = [RunStatus.Completed, RunStatus.Failed, RunStatus.Cancelled],
         [RunStatus.Completed] = [],
         [RunStatus.Failed] = [],

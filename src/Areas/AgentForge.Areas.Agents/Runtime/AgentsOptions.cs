@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using AgentForge.Areas.Agents.Runtime.Workspace;
 
 namespace AgentForge.Areas.Agents.Runtime;
 
@@ -14,6 +15,8 @@ public sealed class AgentsOptions
 
     [Required]
     public AgentsPricingOptions Pricing { get; set; } = new();
+
+    public WorkspaceOptions Workspace { get; set; } = new();
 }
 
 public sealed class AgentsLlmOptions
