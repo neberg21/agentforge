@@ -74,6 +74,7 @@ export type ConversationMessageDto = {
   toolCallId: string | null
   senderAgentId: string | null
   senderName: string | null
+  mentions: string[] | null
   createdAt: string
 }
 

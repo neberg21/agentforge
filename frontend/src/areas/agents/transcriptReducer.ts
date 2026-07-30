@@ -7,6 +7,7 @@ export type TranscriptMessage = {
   toolCallId: string | null
   senderAgentId?: string | null
   senderName?: string | null
+  mentions?: string[] | null
   pending?: boolean
 }
 
