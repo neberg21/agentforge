@@ -10,7 +10,7 @@ import {
   postConversationMessage,
   startRun,
 } from './api'
-import type { AgentDto, ConversationDto, ParticipantDto } from './types'
+import type { AgentDto, ConversationDto, ConversationMessageDto } from './types'
 import { openEventSource } from '../../lib/sse'
 import {
   emptyTranscript,
@@ -21,6 +21,11 @@ import {
 import { rememberItem } from '../../lib/recent'
 import { useContextPanel } from '../../shell/ContextPanel'
 import { ToolCallCard } from './ToolCallCard'
+import { MentionTextarea } from './MentionTextarea'
+import { MessageBody } from './MessageBody'
+import { autoMentionPosition } from './mentionConfig'
+import { prepareOutgoingMessage } from './mentions'
+import type { ApiError } from '../../lib/http'
 
 function senderColor(agentId: string): string {
   let hash = 0
@@ -29,6 +34,20 @@ function senderColor(agentId: string): string {
   }
   const hue = hash % 360
   return `hsl(${hue} 45% 40%)`
+}
+
+function toTranscript(messages: ConversationMessageDto[]): TranscriptMessage[] {
+  return messages.map((message) => ({
+    id: message.id,
+    sequence: message.sequence,
+    role: message.role,
+    content: message.content,
+    toolCallsJson: message.toolCallsJson,
+    toolCallId: message.toolCallId,
+    senderAgentId: message.senderAgentId,
+    senderName: message.senderName,
+    mentions: message.mentions,
+  }))
 }
 
 export function ConversationListPage() {
@@ -126,7 +145,6 @@ export function ConversationPage() {
   const { setContent } = useContextPanel()
   const [conversation, setConversation] = useState<ConversationDto | null>(null)
   const [content, setMessage] = useState('')
-  const [mentions, setMentions] = useState<string[]>([])
   const [hint, setHint] = useState<string | null>(null)
   const [draftOpen, setDraftOpen] = useState(false)
   const [draftObjective, setDraftObjective] = useState('')
@@ -148,18 +166,7 @@ export function ConversationPage() {
         })
         dispatch({
           type: 'hydrate',
-          messages: messages.map(
-            (message): TranscriptMessage => ({
-              id: message.id,
-              sequence: message.sequence,
-              role: message.role,
-              content: message.content,
-              toolCallsJson: message.toolCallsJson,
-              toolCallId: message.toolCallId,
-              senderAgentId: message.senderAgentId,
-              senderName: message.senderName,
-            }),
-          ),
+          messages: toTranscript(messages),
         })
         stop = openEventSource(`/api/agents/conversations/${id}/stream`, {
           onEvent: (type, data) => dispatch({ type: 'sse', event: type, data }),
@@ -177,16 +184,7 @@ export function ConversationPage() {
     void getConversationMessages(id).then((messages) => {
       dispatch({
         type: 'reloadMessages',
-        messages: messages.map((message) => ({
-          id: message.id,
-          sequence: message.sequence,
-          role: message.role,
-          content: message.content,
-          toolCallsJson: message.toolCallsJson,
-          toolCallId: message.toolCallId,
-          senderAgentId: message.senderAgentId,
-          senderName: message.senderName,
-        })),
+        messages: toTranscript(messages),
       })
     })
   }, [state.needsMessageReload, id])
@@ -226,35 +224,34 @@ export function ConversationPage() {
 
   async function onSend(event: React.FormEvent) {
     event.preventDefault()
-    if (!id) {
+    if (!id || !conversation) {
       return
     }
-    setHint(mentions.length === 0 ? 'Not addressed — no agent will reply.' : null)
-    await postConversationMessage(id, { content, mentions })
-    setMessage('')
-    setMentions([])
-    const messages = await getConversationMessages(id)
-    dispatch({
-      type: 'reloadMessages',
-      messages: messages.map((message) => ({
-        id: message.id,
-        sequence: message.sequence,
-        role: message.role,
-        content: message.content,
-        toolCallsJson: message.toolCallsJson,
-        toolCallId: message.toolCallId,
-        senderAgentId: message.senderAgentId,
-        senderName: message.senderName,
-      })),
-    })
-  }
-
-  function toggleMention(participant: ParticipantDto) {
-    setMentions((current) =>
-      current.includes(participant.agentId)
-        ? current.filter((id) => id !== participant.agentId)
-        : [...current, participant.agentId],
+    const prepared = prepareOutgoingMessage(
+      content,
+      conversation.participants,
+      autoMentionPosition,
     )
+    setHint(
+      conversation.participants.length > 1 && prepared.mentions.length === 0
+        ? 'Not addressed — no agent will reply.'
+        : null,
+    )
+    try {
+      await postConversationMessage(id, {
+        content: prepared.content,
+        mentions: prepared.mentions,
+      })
+      setMessage('')
+      const messages = await getConversationMessages(id)
+      dispatch({
+        type: 'reloadMessages',
+        messages: toTranscript(messages),
+      })
+    } catch (error) {
+      const apiError = error as ApiError
+      setHint(apiError.detail ?? apiError.title ?? 'Send failed')
+    }
   }
 
   if (!conversation) {
@@ -275,31 +272,23 @@ export function ConversationPage() {
             >
               {message.senderName ?? message.role}
             </div>
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            <MessageBody
+              role={message.role}
+              content={message.content}
+              mentions={message.mentions}
+              participants={conversation.participants}
+            />
             <ToolCallCard toolCallsJson={message.toolCallsJson} />
           </div>
         ))}
       </div>
       {hint ? <p className="text-sm text-[var(--muted)]">{hint}</p> : null}
       <form className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={(e) => void onSend(e)}>
-        <div className="flex flex-wrap gap-2 text-sm">
-          {conversation.participants.map((participant) => (
-            <button
-              key={participant.agentId}
-              type="button"
-              className={`rounded border px-2 py-1 ${
-                mentions.includes(participant.agentId) ? 'border-[var(--accent)]' : 'border-[var(--border)]'
-              }`}
-              onClick={() => toggleMention(participant)}
-            >
-              @{participant.name}
-            </button>
-          ))}
-        </div>
-        <textarea
+        <MentionTextarea
           className="min-h-24 w-full rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
           value={content}
-          onChange={(event) => setMessage(event.target.value)}
+          onChange={setMessage}
+          participants={conversation.participants}
           required
         />
         <button type="submit" className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white">
