@@ -36,7 +36,7 @@ public class RunLoopTests
     }
 
     [Fact]
-    public async Task Einzelne_Assistentenantwort_ohne_Tools_schliesst_ab()
+    public async Task ExecuteAsync_WhenAssistantRepliesWithoutTools_Completes()
     {
         using var database = new AgentsDatabase();
         var agent = Agent.Create(database.CurrentUser.OwnerId, Definition(), TestClock.AtEpoch().UtcNow);
@@ -68,7 +68,7 @@ public class RunLoopTests
     }
 
     [Fact]
-    public async Task ToolCall_dann_finale_Antwort()
+    public async Task ExecuteAsync_WhenToolCallThenFinalReply_CompletesWithToolMessage()
     {
         using var database = new AgentsDatabase();
         var agent = Agent.Create(
@@ -102,7 +102,7 @@ public class RunLoopTests
     }
 
     [Fact]
-    public async Task Llm_Fehler_setzt_Failed()
+    public async Task ExecuteAsync_WhenLlmThrows_Fails()
     {
         using var database = new AgentsDatabase();
         var agent = Agent.Create(database.CurrentUser.OwnerId, Definition(), TestClock.AtEpoch().UtcNow);
@@ -127,7 +127,7 @@ public class RunLoopTests
     }
 
     [Fact]
-    public async Task MaxTurns_mit_ewigen_ToolCalls_schlägt_fehl()
+    public async Task ExecuteAsync_WhenMaxTurnsExceeded_FailsWithMaxTurns()
     {
         using var database = new AgentsDatabase();
         var agent = Agent.Create(
@@ -157,7 +157,7 @@ public class RunLoopTests
     }
 
     [Fact]
-    public async Task Cancel_waehrend_Llm_Call_laesst_Run_Cancelled()
+    public async Task ExecuteAsync_WhenCancelledDuringLlm_EndsCancelled()
     {
         using var database = new AgentsDatabase();
         var agent = Agent.Create(database.CurrentUser.OwnerId, Definition(), TestClock.AtEpoch().UtcNow);

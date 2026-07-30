@@ -12,7 +12,7 @@ public class RunLifecycleTests
     }
 
     [Fact]
-    public void MarkRunning_setzt_Status_und_StartedAt()
+    public void MarkRunning_WhenPending_SetsStatusAndStartedAt()
     {
         var clock = TestClock.AtEpoch();
         var run = NewRun(clock);
@@ -25,7 +25,7 @@ public class RunLifecycleTests
     }
 
     [Fact]
-    public void Complete_setzt_CompletedAt()
+    public void Complete_WhenRunning_SetsCompletedAt()
     {
         var clock = TestClock.AtEpoch();
         var run = NewRun(clock);
@@ -40,7 +40,7 @@ public class RunLifecycleTests
     }
 
     [Fact]
-    public void Fail_setzt_Error_und_CompletedAt()
+    public void Fail_WhenRunning_SetsErrorAndCompletedAt()
     {
         var clock = TestClock.AtEpoch();
         var run = NewRun(clock);
@@ -53,7 +53,7 @@ public class RunLifecycleTests
     }
 
     [Fact]
-    public void Cancel_aus_Running_ist_erlaubt()
+    public void Cancel_WhenRunning_Succeeds()
     {
         var clock = TestClock.AtEpoch();
         var run = NewRun(clock);
@@ -65,7 +65,7 @@ public class RunLifecycleTests
     }
 
     [Fact]
-    public void ApplyUsage_kumuliert_Tokens_und_setzt_Kosten()
+    public void ApplyUsage_WhenCalled_AccumulatesTokensAndSetsCost()
     {
         var clock = TestClock.AtEpoch();
         var run = NewRun(clock);

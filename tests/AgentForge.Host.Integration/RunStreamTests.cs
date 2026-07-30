@@ -11,7 +11,7 @@ public sealed class RunStreamTests : IDisposable
     public void Dispose() => _factory.Dispose();
 
     [Fact]
-    public async Task Stream_emits_status_and_done_events()
+    public async Task Runs_WhenStreamed_EmitStatusAndDoneEvents()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();

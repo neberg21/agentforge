@@ -34,7 +34,7 @@ public class HostEndpointTests(AgentForgeFactory factory) : IClassFixture<AgentF
     }
 
     [Fact]
-    public async Task UnknownPath_WhenRequested_ReturnsNotFound()
+    public async Task UnknownRoutes_WhenRequested_ReturnNotFound()
     {
         using var client = factory.CreateClient();
 

@@ -10,7 +10,7 @@ public sealed class RunExecutionTests : IDisposable
     public void Dispose() => _factory.Dispose();
 
     [Fact]
-    public async Task Create_then_poll_until_Completed_with_assistant_and_tokens()
+    public async Task Runs_WhenCreated_ReachCompletedWithAssistantAndTokens()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
@@ -43,7 +43,7 @@ public sealed class RunExecutionTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancel_while_Running_ends_Cancelled()
+    public async Task Runs_WhenCancelledWhileRunning_BecomeCancelled()
     {
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var result = new AgentForge.Areas.Agents.Runtime.Llm.LlmCompletionResult(

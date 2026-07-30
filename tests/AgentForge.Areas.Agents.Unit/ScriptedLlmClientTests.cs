@@ -5,7 +5,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class ScriptedLlmClientTests
 {
     [Fact]
-    public async Task CompleteAsync_liefert_Ergebnisse_in_Reihenfolge()
+    public async Task CompleteAsync_WhenScripted_ReturnsResultsInOrder()
     {
         var first = new LlmCompletionResult("eins", [], new LlmUsage(1, 1));
         var second = new LlmCompletionResult("zwei", [], new LlmUsage(2, 2));
@@ -23,7 +23,7 @@ public class ScriptedLlmClientTests
     }
 
     [Fact]
-    public async Task CompleteAsync_ohne_Vorrat_wirft()
+    public async Task CompleteAsync_WhenEmpty_Throws()
     {
         var client = new ScriptedLlmClient();
         var request = new LlmCompletionRequest("m", 0.5, 100, [], []);

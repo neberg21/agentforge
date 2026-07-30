@@ -5,7 +5,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class CostEstimatorTests
 {
     [Fact]
-    public void Estimate_rechnet_anteilig_pro_Million()
+    public void Estimate_WhenTokensGiven_ProratesPerMillion()
     {
         var pricing = new AgentsPricingOptions
         {

@@ -5,7 +5,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class RunEventBusTests
 {
     [Fact]
-    public async Task Subscribe_erhaelt_Events_fuer_die_RunId()
+    public async Task Subscribe_WhenEventsPublished_ReceivesMatchingRunId()
     {
         var bus = new InProcessRunEventBus();
         var runId = Guid.CreateVersion7();
