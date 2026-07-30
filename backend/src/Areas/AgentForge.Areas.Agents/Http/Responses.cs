@@ -172,4 +172,9 @@ public sealed record BuilderSessionResponse(Guid ConversationId, Guid BuilderAge
         new(session.ConversationId, session.BuilderAgentId);
 }
 
+public sealed record AgentSuggestionsResponse(string Name)
+{
+    public static AgentSuggestionsResponse From(string name) => new(name);
+}
+
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int Total, int Skip, int Take);

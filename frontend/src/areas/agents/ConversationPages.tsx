@@ -265,7 +265,9 @@ export function ConversationPage() {
     <div className="flex h-full flex-col gap-4">
       <h1 className="text-xl font-semibold">{conversation.title}</h1>
       <div className="flex-1 space-y-3 overflow-auto" role="log" aria-live="polite">
-        {messagesInOrder(state).map((message) => {
+        {messagesInOrder(state)
+          .filter((message) => message.role !== 'System')
+          .map((message) => {
           const rawContent = message.content ?? ''
           const parsed =
             message.role === 'Assistant'

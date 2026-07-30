@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createConversation,
+  getAgentSuggestions,
   listAgents,
   postConversationMessage,
   startBuilderSession,
@@ -114,5 +115,21 @@ describe('agents api client', () => {
     const [url, init] = lastFetchCall(fetchMock)
     expect(String(url)).toBe('/api/agents/builder/session')
     expect(init?.method).toBe('POST')
+  })
+
+  it('getAgentSuggestions gets definitions suggestions', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ name: 'Lena' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await getAgentSuggestions()
+    expect(result.name).toBe('Lena')
+    const [url, init] = lastFetchCall(fetchMock)
+    expect(String(url)).toBe('/api/agents/definitions/suggestions')
+    expect(init?.method ?? 'GET').toMatch(/GET/i)
   })
 })

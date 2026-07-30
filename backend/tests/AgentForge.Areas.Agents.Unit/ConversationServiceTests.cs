@@ -267,4 +267,51 @@ public class ConversationServiceTests
         Assert.Equal(agent.Value.Id, result.Value!.AgentId);
         Assert.Equal("Ship the feature.", result.Value.Objective);
     }
+
+    [Fact]
+    public async Task CreateAsync_WhenInitialSystemMessage_PersistsSystemMessage()
+    {
+        using var database = new AgentsDatabase();
+        var (context, conversations, agents, _) = NewServices(database, TestClock.AtEpoch());
+        await using var _ = context;
+        var leo = await agents.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+        var ids = new[] { leo.Value!.Id };
+
+        var created = await conversations.CreateAsync(
+            "New agent",
+            ids,
+            "Suggested agent name for this session: Lena. Use this exact name...",
+            TestContext.Current.CancellationToken);
+
+        Assert.True(created.IsSuccess);
+        var messages = await conversations.GetMessagesAsync(
+            created.Value!.Id,
+            TestContext.Current.CancellationToken);
+        Assert.True(messages.IsSuccess);
+        var stored = Assert.Single(messages.Value!);
+        Assert.Equal(MessageRole.System, stored.Role);
+        Assert.Contains("Lena", stored.Content);
+    }
+
+    [Fact]
+    public async Task ListAsync_WhenOnlySystemMessage_ExcerptIsNull()
+    {
+        using var database = new AgentsDatabase();
+        var (context, conversations, agents, _) = NewServices(database, TestClock.AtEpoch());
+        await using var _ = context;
+        var leo = await agents.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+        var ids = new[] { leo.Value!.Id };
+
+        await conversations.CreateAsync(
+            "New agent",
+            ids,
+            "Suggested agent name for this session: Lena.",
+            TestContext.Current.CancellationToken);
+
+        var page = await conversations.ListAsync(
+            PageRequest.From(0, 50),
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(page.Items[0].LastMessageExcerpt);
+    }
 }

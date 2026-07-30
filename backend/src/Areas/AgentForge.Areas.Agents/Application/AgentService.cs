@@ -148,6 +148,9 @@ public sealed class AgentService
         return agent;
     }
 
+    public Task<bool> IsNameTakenAsync(string name, CancellationToken ct) =>
+        NameIsTakenAsync(name, null, ct);
+
     private Task<bool> NameIsTakenAsync(string name, Guid? exceptId, CancellationToken ct) =>
         _db.Agents.AnyAsync(
             agent => agent.Name == name && agent.ArchivedAt == null && (exceptId == null || agent.Id != exceptId),

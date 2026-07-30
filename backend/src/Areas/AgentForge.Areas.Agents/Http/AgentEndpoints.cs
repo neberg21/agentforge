@@ -23,6 +23,12 @@ public static class AgentEndpoints
                 page.Take));
         });
 
+        group.MapGet("/suggestions", async (AgentSuggestionService suggestions, CancellationToken ct) =>
+        {
+            var name = await suggestions.SuggestNameAsync(ct);
+            return TypedResults.Ok(AgentSuggestionsResponse.From(name));
+        });
+
         group.MapGet("/{id:guid}", async (AgentService service, Guid id, CancellationToken ct) =>
             (await service.GetAsync(id, ct)).ToHttpResult(agent => TypedResults.Ok(AgentResponse.From(agent))));
 
