@@ -1,5 +1,9 @@
+using System.Text.Json;
 using AgentForge.Areas.Agents.Domain;
 using AgentForge.Areas.Agents.Persistence;
+using AgentForge.Areas.Agents.Runtime.Events;
+using AgentForge.Areas.Agents.Runtime.Llm;
+using AgentForge.Areas.Agents.Runtime.Queue;
 using AgentForge.Core;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,12 +14,24 @@ public sealed class ConversationService
     private readonly AgentsDbContext _db;
     private readonly ICurrentUser _currentUser;
     private readonly IClock _clock;
+    private readonly IConversationReplyQueue _replyQueue;
+    private readonly IConversationEventBus _events;
+    private readonly ILlmClient _llm;
 
-    public ConversationService(AgentsDbContext db, ICurrentUser currentUser, IClock clock)
+    public ConversationService(
+        AgentsDbContext db,
+        ICurrentUser currentUser,
+        IClock clock,
+        IConversationReplyQueue replyQueue,
+        IConversationEventBus events,
+        ILlmClient llm)
     {
         _db = db;
         _currentUser = currentUser;
         _clock = clock;
+        _replyQueue = replyQueue;
+        _events = events;
+        _llm = llm;
     }
 
     public async Task<Result<Conversation>> CreateAsync(
@@ -180,6 +196,131 @@ public sealed class ConversationService
             .ToListAsync(ct);
 
         return messages;
+    }
+
+    public async Task<Result<Guid>> PostMessageAsync(
+        Guid id,
+        string content,
+        IReadOnlyList<Guid> mentions,
+        CancellationToken ct)
+    {
+        var conversation = await _db.Conversations
+            .Include(candidate => candidate.Participants)
+            .FirstOrDefaultAsync(candidate => candidate.Id == id, ct);
+
+        if (conversation is null)
+        {
+            return AgentErrors.ConversationNotFound(id);
+        }
+
+        if (conversation.IsArchived)
+        {
+            return AgentErrors.ConversationArchived(id);
+        }
+
+        var participantIds = conversation.Participants.Select(participant => participant.AgentId).ToHashSet();
+        foreach (var mention in mentions)
+        {
+            if (!participantIds.Contains(mention))
+            {
+                return AgentErrors.MentionNotParticipant();
+            }
+        }
+
+        var mentionsJson = mentions.Count == 0
+            ? null
+            : JsonSerializer.Serialize(mentions);
+        var message = conversation.AppendMessage(
+            MessageRole.User,
+            content,
+            _clock.UtcNow,
+            senderAgentId: null,
+            senderName: null,
+            mentionsJson,
+            toolCallsJson: null,
+            toolCallId: null);
+        _db.ConversationMessages.Add(message);
+        await _db.SaveChangesAsync(ct);
+
+        var streamId = Guid.CreateVersion7();
+        if (mentions.Count == 0)
+        {
+            var done = new ConversationEvent(id, RunEventType.Done, "{}");
+            _events.Publish(done);
+            return streamId;
+        }
+
+        var job = new ConversationReplyJob(id, streamId, mentions.ToArray());
+        _replyQueue.Enqueue(job);
+        return streamId;
+    }
+
+    public async Task<Result<DraftRunProposal>> DraftRunAsync(
+        Guid id,
+        Guid? preferredAgentId,
+        CancellationToken ct)
+    {
+        var detail = await GetAsync(id, ct);
+        if (!detail.IsSuccess)
+        {
+            return detail.Error!.Value;
+        }
+
+        var conversation = detail.Value!.Conversation;
+        if (conversation.IsArchived)
+        {
+            return AgentErrors.ConversationArchived(id);
+        }
+
+        var participants = detail.Value.Participants;
+        ConversationParticipantInfo? chosen = null;
+        if (preferredAgentId is { } preferred)
+        {
+            chosen = participants.FirstOrDefault(participant => participant.AgentId == preferred);
+            if (chosen is null)
+            {
+                return AgentErrors.MentionNotParticipant();
+            }
+        }
+        else
+        {
+            chosen = participants[0];
+        }
+
+        var agent = await _db.Agents.FirstOrDefaultAsync(candidate => candidate.Id == chosen.AgentId, ct);
+        if (agent is null)
+        {
+            return AgentErrors.AgentNotFound(chosen.AgentId);
+        }
+
+        var history = await GetMessagesAsync(id, ct);
+        if (!history.IsSuccess)
+        {
+            return history.Error!.Value;
+        }
+
+        var transcript = string.Join(
+            "\n",
+            history.Value!.Select(message => $"{message.Role}: {message.Content}"));
+        var system = "Propose a single concrete run objective from the conversation. Reply with only the objective text.";
+        var user = "Conversation:\n" + transcript;
+        var messages = new List<LlmMessage>
+        {
+            new("system", system, null, null),
+            new("user", user, null, null)
+        };
+        var request = new LlmCompletionRequest(
+            agent.Model,
+            agent.Temperature,
+            Math.Min(agent.MaxOutputTokens, 2048),
+            messages,
+            Array.Empty<string>());
+        var completion = await _llm.CompleteAsync(request, ct);
+        var objective = string.IsNullOrWhiteSpace(completion.Content)
+            ? "Complete the planned work from the conversation."
+            : completion.Content.Trim();
+        var proposal = new DraftRunProposal(objective, chosen.AgentId);
+        return proposal;
     }
 
     private async Task<Result<IReadOnlyList<Agent>>> LoadActiveParticipantsAsync(

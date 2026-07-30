@@ -1,3 +1,4 @@
+using AgentForge.Areas.Agents.Application;
 using AgentForge.Areas.Agents.Domain;
 
 namespace AgentForge.Areas.Agents.Http;
@@ -73,5 +74,85 @@ public sealed record RunMessageResponse(
         new(message.Id, message.Sequence, message.Role.ToString(), message.Content,
             message.ToolCallsJson, message.ToolCallId, message.CreatedAt);
 }
+
+public sealed record ConversationParticipantResponse(Guid AgentId, string Name);
+
+public sealed record ConversationResponse(
+    Guid Id,
+    string Title,
+    IReadOnlyList<ConversationParticipantResponse> Participants,
+    string? LastMessageExcerpt,
+    DateTimeOffset? LastMessageAt,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset? ArchivedAt,
+    Guid ConcurrencyToken)
+{
+    public static ConversationResponse From(ConversationListItem item) =>
+        new(
+            item.Conversation.Id,
+            item.Conversation.Title,
+            item.Participants.Select(participant =>
+                new ConversationParticipantResponse(participant.AgentId, participant.Name)).ToArray(),
+            item.LastMessageExcerpt,
+            item.LastMessageAt,
+            item.Conversation.CreatedAt,
+            item.Conversation.UpdatedAt,
+            item.Conversation.ArchivedAt,
+            item.Conversation.ConcurrencyToken);
+
+    public static ConversationResponse From(ConversationDetail detail) =>
+        new(
+            detail.Conversation.Id,
+            detail.Conversation.Title,
+            detail.Participants.Select(participant =>
+                new ConversationParticipantResponse(participant.AgentId, participant.Name)).ToArray(),
+            null,
+            null,
+            detail.Conversation.CreatedAt,
+            detail.Conversation.UpdatedAt,
+            detail.Conversation.ArchivedAt,
+            detail.Conversation.ConcurrencyToken);
+
+    public static ConversationResponse From(Conversation conversation, IReadOnlyList<ConversationParticipantResponse> participants) =>
+        new(
+            conversation.Id,
+            conversation.Title,
+            participants,
+            null,
+            null,
+            conversation.CreatedAt,
+            conversation.UpdatedAt,
+            conversation.ArchivedAt,
+            conversation.ConcurrencyToken);
+}
+
+public sealed record ConversationMessageResponse(
+    Guid Id,
+    int Sequence,
+    string Role,
+    string? Content,
+    string? ToolCallsJson,
+    string? ToolCallId,
+    Guid? SenderAgentId,
+    string? SenderName,
+    DateTimeOffset CreatedAt)
+{
+    public static ConversationMessageResponse From(ConversationMessage message) =>
+        new(
+            message.Id,
+            message.Sequence,
+            message.Role.ToString(),
+            message.Content,
+            message.ToolCallsJson,
+            message.ToolCallId,
+            message.SenderAgentId,
+            message.SenderName,
+            message.CreatedAt);
+}
+
+public sealed record PostMessageAcceptedResponse(Guid StreamId);
+
+public sealed record DraftRunResponse(string Objective, Guid AgentId);
 
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int Total, int Skip, int Take);

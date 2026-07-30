@@ -1,5 +1,7 @@
 using AgentForge.Areas.Agents.Application;
 using AgentForge.Areas.Agents.Persistence;
+using AgentForge.Areas.Agents.Runtime.Events;
+using AgentForge.Areas.Agents.Runtime.Llm;
 using AgentForge.Areas.Agents.Runtime.Queue;
 
 namespace AgentForge.Areas.Agents.Unit;
@@ -39,8 +41,17 @@ public class RunServiceTests
         var clock = TestClock.AtEpoch();
         var context = database.NewContext();
         var agents = new AgentService(context, database.CurrentUser, clock);
-        var conversations = new ConversationService(context, database.CurrentUser, clock);
         var queue = new RecordingRunQueue();
+        var replyQueue = new ChannelConversationReplyQueue();
+        var events = new InProcessConversationEventBus();
+        var llm = new ScriptedLlmClient([new LlmCompletionResult("OK", [], new LlmUsage(1, 1))]);
+        var conversations = new ConversationService(
+            context,
+            database.CurrentUser,
+            clock,
+            replyQueue,
+            events,
+            llm);
         var runs = new RunService(context, clock, queue);
         return new Fixture(context, agents, runs, conversations, clock, queue);
     }

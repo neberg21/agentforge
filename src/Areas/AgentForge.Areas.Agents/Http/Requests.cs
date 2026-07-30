@@ -31,6 +31,21 @@ public sealed record CreateRunRequest(
 
 public sealed record CancelRunRequest(Guid ConcurrencyToken);
 
+public sealed record CreateConversationRequest(
+    [property: StringLength(200)] string? Title,
+    [property: Required][property: MinLength(1)] Guid[] ParticipantAgentIds);
+
+public sealed record UpdateConversationRequest(
+    [property: Required][property: StringLength(200, MinimumLength = 1)] string Title,
+    [property: Required][property: MinLength(1)] Guid[] ParticipantAgentIds,
+    Guid ConcurrencyToken);
+
+public sealed record PostConversationMessageRequest(
+    [property: Required][property: StringLength(20_000, MinimumLength = 1)] string Content,
+    Guid[]? Mentions);
+
+public sealed record DraftRunRequest(Guid? AgentId);
+
 public static class RequestMapping
 {
     public static AgentDefinition ToDefinition(this CreateAgentRequest request) =>

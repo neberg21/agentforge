@@ -89,6 +89,7 @@ public sealed class AgentsArea : IArea
     {
         routes.MapAgentEndpoints();
         routes.MapRunEndpoints();
+        routes.MapConversationEndpoints();
     }
 
     public Task MigrateAsync(IServiceProvider services, CancellationToken cancellationToken) =>

@@ -13,3 +13,5 @@ public sealed record ConversationListItem(
 public sealed record ConversationDetail(
     Conversation Conversation,
     IReadOnlyList<ConversationParticipantInfo> Participants);
+
+public sealed record DraftRunProposal(string Objective, Guid AgentId);
