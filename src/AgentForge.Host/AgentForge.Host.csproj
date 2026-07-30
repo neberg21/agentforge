@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AgentForge.Core\AgentForge.Core.csproj" />
     <ProjectReference Include="..\AgentForge.Areas.Abstractions\AgentForge.Areas.Abstractions.csproj" />
+    <ProjectReference Include="..\Areas\AgentForge.Areas.Agents\AgentForge.Areas.Agents.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />

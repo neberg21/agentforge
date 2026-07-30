@@ -30,7 +30,7 @@ public class HostEndpointTests(AgentForgeFactory factory) : IClassFixture<AgentF
         var areas = await client.GetFromJsonAsync<AreaInfo[]>("/api/areas", TestContext.Current.CancellationToken);
 
         Assert.NotNull(areas);
-        Assert.Empty(areas);
+        Assert.Equal(["agents"], areas.Select(a => a.Slug));
     }
 
     [Fact]

@@ -12,7 +12,9 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="System.Net" />
     <Using Include="System.Net.Http.Json" />
+    <Using Include="System.Text.Json" />
     <Using Include="AgentForge.Areas.Abstractions" />
+    <Using Include="AgentForge.Areas.Agents.Http" />
   </ItemGroup>
 
   <ItemGroup>

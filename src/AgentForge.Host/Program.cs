@@ -1,4 +1,5 @@
 using AgentForge.Areas.Abstractions;
+using AgentForge.Areas.Agents;
 using AgentForge.Core;
 using AgentForge.Host;
 using Scalar.AspNetCore;
@@ -31,6 +32,8 @@ builder.Services.AddSingleton<IDbProvider, ConfiguredDbProvider>();
 
 builder.Services.AddAuthorization(options =>
     options.AddPolicy(AreaPolicies.AreaAccess, policy => policy.RequireAssertion(_ => true)));
+
+builder.AddArea<AgentsArea>();
 
 var app = builder.Build();
 
