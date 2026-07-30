@@ -662,6 +662,12 @@ public static class AreaPolicies
 
 public static class AreaRegistration
 {
+    public static WebApplicationBuilder AddAreaSupport(this WebApplicationBuilder builder)
+    {
+        GetOrCreateRegistry(builder.Services);
+        return builder;
+    }
+
     public static WebApplicationBuilder AddArea<TArea>(this WebApplicationBuilder builder)
         where TArea : IArea, new()
     {
@@ -744,6 +750,7 @@ dotnet sln add src/AgentForge.Host tests/AgentForge.Host.Integration
 dotnet add src/AgentForge.Host reference src/AgentForge.Core src/AgentForge.Areas.Abstractions
 dotnet add tests/AgentForge.Host.Integration reference src/AgentForge.Host
 dotnet add src/AgentForge.Host package Microsoft.EntityFrameworkCore.Sqlite
+dotnet add src/AgentForge.Host package Microsoft.AspNetCore.OpenApi
 dotnet add src/AgentForge.Host package Scalar.AspNetCore
 dotnet add tests/AgentForge.Host.Integration package Microsoft.AspNetCore.Mvc.Testing
 dotnet add tests/AgentForge.Host.Integration package Microsoft.EntityFrameworkCore.Sqlite
@@ -1078,6 +1085,8 @@ builder.Services.AddOptions<DatabaseOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<IDbProvider, ConfiguredDbProvider>();
 
+builder.AddAreaSupport();
+
 builder.Services.AddAuthorization(options =>
     options.AddPolicy(AreaPolicies.AreaAccess, policy => policy.RequireAssertion(_ => true)));
 
@@ -1143,7 +1152,7 @@ Die Autorisierungs-Policy stimmt hier bedingungslos zu. Sie existiert trotzdem, 
 - [ ] **Step 9: Tests laufen lassen**
 
 Run: `dotnet test tests/AgentForge.Host.Integration`
-Erwartet: PASS, vier Tests.
+Erwartet: PASS, vier Tests. (Die Umsetzung ergänzte hier zusätzlich einen Test für die Ablehnung von `Database:Provider=postgres` sowie zwei Tests in `AgentForge.Areas.Abstractions.Unit`, die die Reihenfolgeunabhängigkeit von `AddAreaSupport` und `AddArea<T>` festhalten.)
 
 Schlägt `Readiness_antwortet_mit_200` mit einem Fehler zur Authentifizierung fehl, fehlt der Grund nicht in der Policy, sondern in der Reihenfolge: `MapHealthChecks` darf keine Autorisierung verlangen. Prüfe, dass `/_health/ready` außerhalb von `MapAreas` gemountet ist.
 
@@ -1153,7 +1162,9 @@ Schlägt `Readiness_antwortet_mit_200` mit einem Fehler zur Authentifizierung fe
 dotnet run --project src/AgentForge.Host
 ```
 
-Erwartet: Der Host startet ohne Fehler und legt `.data/agentforge.db` an. Rufe `http://localhost:<port>/_health` und `http://localhost:<port>/scalar/v1` auf, dann beende mit Strg+C.
+Erwartet: Der Host startet ohne Fehler. Rufe `http://localhost:<port>/_health` und `http://localhost:<port>/scalar/v1` auf, dann beende mit Strg+C.
+
+`.data/agentforge.db` entsteht hier noch **nicht**. `ConfiguredDbProvider.Apply` wird erst aufgerufen, wenn ein Bereich einen `DbContext` registriert — das passiert in Task 8. Bis dahin ist die Provider-Verdrahtung vorhanden, aber unbenutzt.
 
 - [ ] **Step 11: Committen**
 
@@ -1300,6 +1311,21 @@ public class AgentTests
     }
 
     [Fact]
+    public void Der_Agent_teilt_sein_Werkzeug_Array_nicht_mit_der_Definition()
+    {
+        var clock = TestClock.AtEpoch();
+        var tools = new[] { "read_file" };
+        var agent = Agent.Create(
+            "owner-1",
+            new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, tools),
+            clock.UtcNow);
+
+        tools[0] = "shell";
+
+        Assert.Equal(["read_file"], agent.AllowedTools);
+    }
+
+    [Fact]
     public void ToSnapshot_kopiert_die_ausfuehrungsrelevanten_Felder()
     {
         var agent = Agent.Create("owner-1", Definition(), TestClock.AtEpoch().UtcNow);
@@ -1379,6 +1405,21 @@ public class RunTests
         Assert.Equal("Du bist hilfreich.", run.AgentSnapshot.SystemPrompt);
         Assert.Equal("some-model", run.AgentSnapshot.Model);
         Assert.Empty(run.AgentSnapshot.AllowedTools);
+    }
+
+    [Fact]
+    public void Der_Snapshot_teilt_sein_Werkzeug_Array_nicht_mit_dem_Agenten()
+    {
+        var clock = TestClock.AtEpoch();
+        var agent = Agent.Create(
+            "owner-1",
+            new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, ["read_file"]),
+            clock.UtcNow);
+        var run = Run.Create(agent, "Baue eine Todo-App.", clock.UtcNow);
+
+        agent.AllowedTools[0] = "shell";
+
+        Assert.Equal(["read_file"], run.AgentSnapshot.AllowedTools);
     }
 
     [Fact]
@@ -1838,7 +1879,7 @@ public sealed class Run
 - [ ] **Step 9: Tests laufen lassen**
 
 Run: `dotnet test tests/AgentForge.Areas.Agents.Unit`
-Erwartet: PASS, 22 Tests.
+Erwartet: PASS, 24 Tests.
 
 - [ ] **Step 10: Committen**
 
@@ -2267,7 +2308,7 @@ Der Filter greift auf `OwnerId` des Kontexts zu, nicht auf einen festen Wert. EF
 - [ ] **Step 5: Tests laufen lassen**
 
 Run: `dotnet test tests/AgentForge.Areas.Agents.Unit`
-Erwartet: PASS, 30 Tests.
+Erwartet: PASS, 32 Tests.
 
 Schlägt `Ein_Agent_mit_Runs_laesst_sich_nicht_loeschen` fehl, weil SQLite die Fremdschlüssel nicht durchsetzt: SQLite prüft Fremdschlüssel nur bei aktiviertem `PRAGMA foreign_keys`. Der EF-SQLite-Provider setzt das je Verbindung selbst; passiert es nicht, ergänze in `AgentsDatabase` nach `_connection.Open()` einen Befehl `PRAGMA foreign_keys = ON;`.
 
@@ -2735,7 +2776,7 @@ Drei Entscheidungen, die in den Tests festgehalten sind: Das Archivieren ist wie
 - [ ] **Step 5: Tests laufen lassen**
 
 Run: `dotnet test tests/AgentForge.Areas.Agents.Unit`
-Erwartet: PASS, 45 Tests.
+Erwartet: PASS, 47 Tests.
 
 - [ ] **Step 6: Committen**
 
@@ -3048,7 +3089,7 @@ Die Sortierung fällt nach `CreatedAt` auf `Id` zurück. Beide Runs derselben Se
 - [ ] **Step 4: Tests laufen lassen**
 
 Run: `dotnet test tests/AgentForge.Areas.Agents.Unit`
-Erwartet: PASS, 54 Tests.
+Erwartet: PASS, 56 Tests.
 
 - [ ] **Step 5: Committen**
 
@@ -3718,7 +3759,7 @@ using AgentForge.Areas.Agents;
 - [ ] **Step 12: Tests laufen lassen**
 
 Run: `dotnet test`
-Erwartet: PASS über alle Projekte, 93 Tests — 3 in `Core.Unit`, 20 in `Areas.Abstractions.Unit`, 54 in `Areas.Agents.Unit`, 16 in `Host.Integration`.
+Erwartet: PASS über alle Projekte, 98 Tests — 3 in `Core.Unit`, 22 in `Areas.Abstractions.Unit`, 56 in `Areas.Agents.Unit`, 17 in `Host.Integration`.
 
 - [ ] **Step 13: Committen**
 
