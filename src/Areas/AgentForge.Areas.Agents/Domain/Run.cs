@@ -83,4 +83,49 @@ public sealed class Run
         CompletedAt = now;
         ConcurrencyToken = Guid.CreateVersion7();
     }
+
+    public void MarkRunning(DateTimeOffset now)
+    {
+        if (!CanTransitionTo(RunStatus.Running))
+        {
+            throw new InvalidOperationException($"A run in status {Status} cannot move to {RunStatus.Running}.");
+        }
+
+        Status = RunStatus.Running;
+        StartedAt = now;
+        ConcurrencyToken = Guid.CreateVersion7();
+    }
+
+    public void Complete(DateTimeOffset now)
+    {
+        if (!CanTransitionTo(RunStatus.Completed))
+        {
+            throw new InvalidOperationException($"A run in status {Status} cannot move to {RunStatus.Completed}.");
+        }
+
+        Status = RunStatus.Completed;
+        CompletedAt = now;
+        Error = null;
+        ConcurrencyToken = Guid.CreateVersion7();
+    }
+
+    public void Fail(string error, DateTimeOffset now)
+    {
+        if (!CanTransitionTo(RunStatus.Failed))
+        {
+            throw new InvalidOperationException($"A run in status {Status} cannot move to {RunStatus.Failed}.");
+        }
+
+        Status = RunStatus.Failed;
+        Error = error;
+        CompletedAt = now;
+        ConcurrencyToken = Guid.CreateVersion7();
+    }
+
+    public void ApplyUsage(int promptDelta, int completionDelta, decimal costEstimate)
+    {
+        PromptTokens = (PromptTokens ?? 0) + promptDelta;
+        CompletionTokens = (CompletionTokens ?? 0) + completionDelta;
+        CostEstimate = costEstimate;
+    }
 }
