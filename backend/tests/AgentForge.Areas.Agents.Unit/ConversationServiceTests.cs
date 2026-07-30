@@ -186,6 +186,42 @@ public class ConversationServiceTests
     }
 
     [Fact]
+    public async Task PostMessageAsync_WhenMessagesAlreadyExist_AssignsNextSequence()
+    {
+        using var database = new AgentsDatabase();
+        var clock = TestClock.AtEpoch();
+        Guid conversationId;
+        {
+            var (context, conversations, agents, _) = NewServices(database, clock);
+            await using var _ = context;
+            var agent = await agents.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+            var ids = new[] { agent.Value!.Id };
+            var created = await conversations.CreateAsync("c", ids, TestContext.Current.CancellationToken);
+            conversationId = created.Value!.Id;
+            var first = await conversations.PostMessageAsync(
+                conversationId,
+                "first",
+                [],
+                TestContext.Current.CancellationToken);
+            Assert.True(first.IsSuccess);
+        }
+
+        {
+            var (context, conversations, _, _) = NewServices(database, clock);
+            await using var _ = context;
+            var second = await conversations.PostMessageAsync(
+                conversationId,
+                "second",
+                [],
+                TestContext.Current.CancellationToken);
+
+            Assert.True(second.IsSuccess);
+            var messages = await conversations.GetMessagesAsync(conversationId, TestContext.Current.CancellationToken);
+            Assert.Equal([0, 1], messages.Value!.Select(message => message.Sequence).ToArray());
+        }
+    }
+
+    [Fact]
     public async Task PostMessageAsync_WhenMentioned_EnqueuesReplyJob()
     {
         using var database = new AgentsDatabase();

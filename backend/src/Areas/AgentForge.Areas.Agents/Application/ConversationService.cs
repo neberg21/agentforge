@@ -206,6 +206,7 @@ public sealed class ConversationService
     {
         var conversation = await _db.Conversations
             .Include(candidate => candidate.Participants)
+            .Include(candidate => candidate.Messages)
             .FirstOrDefaultAsync(candidate => candidate.Id == id, ct);
 
         if (conversation is null)
