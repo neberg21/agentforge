@@ -10,8 +10,8 @@ public sealed class ReadFileTool : ITool
 
     public async Task<string> ExecuteAsync(string argumentsJson, CancellationToken ct)
     {
-        var context = RunWorkspaceContext.Current;
-        if (context is null)
+        var root = RunWorkspaceContext.Current?.Root ?? ConversationReadContext.Current?.Root;
+        if (root is null)
         {
             return """{"ok":false,"error":"no_workspace"}""";
         }
@@ -34,7 +34,7 @@ public sealed class ReadFileTool : ITool
             return """{"ok":false,"error":"path_required"}""";
         }
 
-        if (!WorkspacePath.TryResolve(context.Root, relative, out var fullPath, out var error))
+        if (!WorkspacePath.TryResolve(root, relative, out var fullPath, out var error))
         {
             return $"{{\"ok\":false,\"error\":\"{Escape(error ?? "path_rejected")}\"}}";
         }

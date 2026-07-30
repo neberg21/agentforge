@@ -49,9 +49,12 @@ public sealed class AgentsArea : IArea
             .ValidateOnStart();
 
         services.AddSingleton<IRunEventBus, InProcessRunEventBus>();
+        services.AddSingleton<IConversationEventBus, InProcessConversationEventBus>();
         services.AddSingleton<IRunQueue, ChannelRunQueue>();
+        services.AddSingleton<IConversationReplyQueue, ChannelConversationReplyQueue>();
         services.AddSingleton<IGitWorkspace, GitCliWorkspace>();
         services.AddScoped<IRunWorkspaceSession, RunWorkspaceSession>();
+        services.AddScoped<IConversationReadSession, ConversationReadSession>();
         services.AddSingleton<IToolRegistry>(provider =>
         {
             var registry = new ToolRegistry();
@@ -69,7 +72,9 @@ public sealed class AgentsArea : IArea
             return registry;
         });
         services.AddScoped<RunLoop>();
+        services.AddScoped<ConversationLoop>();
         services.AddHostedService<RunWorker>();
+        services.AddHostedService<ConversationReplyWorker>();
 
         RegisterLlmClient(services, configuration);
 
