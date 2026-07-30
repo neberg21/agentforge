@@ -37,6 +37,13 @@ public sealed class ConversationService
     public async Task<Result<Conversation>> CreateAsync(
         string? title,
         IReadOnlyList<Guid> participantAgentIds,
+        CancellationToken ct) =>
+        await CreateAsync(title, participantAgentIds, initialSystemMessage: null, ct);
+
+    public async Task<Result<Conversation>> CreateAsync(
+        string? title,
+        IReadOnlyList<Guid> participantAgentIds,
+        string? initialSystemMessage,
         CancellationToken ct)
     {
         var agentsResult = await LoadActiveParticipantsAsync(participantAgentIds, ct);
@@ -55,6 +62,20 @@ public sealed class ConversationService
 
         var agentIds = participantAgentIds.Distinct().ToArray();
         var conversation = Conversation.Create(_currentUser.OwnerId, resolvedTitle, agentIds, _clock.UtcNow);
+        if (!string.IsNullOrWhiteSpace(initialSystemMessage))
+        {
+            var systemMessage = conversation.AppendMessage(
+                MessageRole.System,
+                initialSystemMessage.Trim(),
+                _clock.UtcNow,
+                senderAgentId: null,
+                senderName: null,
+                mentionsJson: null,
+                toolCallsJson: null,
+                toolCallId: null);
+            _db.ConversationMessages.Add(systemMessage);
+        }
+
         _db.Conversations.Add(conversation);
         await _db.SaveChangesAsync(ct);
         return conversation;
@@ -91,7 +112,10 @@ public sealed class ConversationService
         foreach (var conversation in conversations)
         {
             var participants = await ResolveParticipantNamesAsync(conversation, ct);
-            var last = conversation.Messages.OrderByDescending(message => message.Sequence).FirstOrDefault();
+            var last = conversation.Messages
+                .Where(message => message.Role != MessageRole.System)
+                .OrderByDescending(message => message.Sequence)
+                .FirstOrDefault();
             var excerpt = last?.Content is null
                 ? null
                 : last.Content.Length <= 120
