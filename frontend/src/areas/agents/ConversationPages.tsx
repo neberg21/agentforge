@@ -23,6 +23,8 @@ import { useContextPanel } from '../../shell/ContextPanel'
 import { ToolCallCard } from './ToolCallCard'
 import { MentionTextarea } from './MentionTextarea'
 import { MessageBody } from './MessageBody'
+import { AgentDraftCard } from './AgentDraftCard'
+import { parseAgentDraft, stripAgentDraftFence } from './agentDraft'
 import { autoMentionPosition } from './mentionConfig'
 import { prepareOutgoingMessage } from './mentions'
 import type { ApiError } from '../../lib/http'
@@ -149,6 +151,7 @@ export function ConversationPage() {
   const [draftOpen, setDraftOpen] = useState(false)
   const [draftObjective, setDraftObjective] = useState('')
   const [draftAgentId, setDraftAgentId] = useState('')
+  const [createdDrafts, setCreatedDrafts] = useState<Record<string, string>>({})
   const [state, dispatch] = useReducer(transcriptReducer, undefined, emptyTranscript)
 
   useEffect(() => {
@@ -262,25 +265,53 @@ export function ConversationPage() {
     <div className="flex h-full flex-col gap-4">
       <h1 className="text-xl font-semibold">{conversation.title}</h1>
       <div className="flex-1 space-y-3 overflow-auto" role="log" aria-live="polite">
-        {messagesInOrder(state).map((message) => (
-          <div key={message.id} className="rounded border border-[var(--border)] bg-[var(--panel)] p-3 text-sm">
+        {messagesInOrder(state).map((message) => {
+          const rawContent = message.content ?? ''
+          const parsed =
+            message.role === 'Assistant'
+              ? parseAgentDraft(rawContent)
+              : ({ ok: false, reason: 'missing' } as const)
+          const displayContent =
+            message.role === 'Assistant' ? stripAgentDraftFence(rawContent) : message.content
+
+          return (
             <div
-              className="mb-1 text-xs font-medium"
-              style={{
-                color: message.senderAgentId ? senderColor(message.senderAgentId) : undefined,
-              }}
+              key={message.id}
+              className="rounded border border-[var(--border)] bg-[var(--panel)] p-3 text-sm"
             >
-              {message.senderName ?? message.role}
+              <div
+                className="mb-1 text-xs font-medium"
+                style={{
+                  color: message.senderAgentId ? senderColor(message.senderAgentId) : undefined,
+                }}
+              >
+                {message.senderName ?? message.role}
+              </div>
+              <MessageBody
+                role={message.role}
+                content={displayContent}
+                mentions={message.mentions}
+                participants={conversation.participants}
+              />
+              {message.role === 'Assistant' && parsed.ok ? (
+                <AgentDraftCard
+                  messageId={message.id}
+                  draft={parsed.draft}
+                  createdAgentId={createdDrafts[message.id] ?? null}
+                  onCreated={(msgId, agentId) =>
+                    setCreatedDrafts((prev) => ({ ...prev, [msgId]: agentId }))
+                  }
+                />
+              ) : null}
+              {message.role === 'Assistant' && !parsed.ok && parsed.reason === 'invalid' ? (
+                <p className="mt-2 text-sm text-red-600">
+                  Draft incomplete — ask the builder to propose again.
+                </p>
+              ) : null}
+              <ToolCallCard toolCallsJson={message.toolCallsJson} />
             </div>
-            <MessageBody
-              role={message.role}
-              content={message.content}
-              mentions={message.mentions}
-              participants={conversation.participants}
-            />
-            <ToolCallCard toolCallsJson={message.toolCallsJson} />
-          </div>
-        ))}
+          )
+        })}
       </div>
       {hint ? <p className="text-sm text-[var(--muted)]">{hint}</p> : null}
       <form className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={(e) => void onSend(e)}>
