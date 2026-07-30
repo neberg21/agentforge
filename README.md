@@ -5,11 +5,12 @@ einzigen Hosts leben. Der erste Bereich verwaltet KI-Agenten und führt Runs aus
 
 ## Aufbau
 
-- `src/AgentForge.Host` — der Composition Root. Die einzige Stelle, die alles kennt.
-- `src/AgentForge.Core` — Ergebnistypen, Zeit, Benutzer. Kennt weder ASP.NET noch EF Core.
-- `src/AgentForge.Areas.Abstractions` — `IArea` und die Registrierungsmaschinerie.
-- `src/Areas/*` — die fachlichen Bereiche.
-- `tests/*` — benannt nach dem Muster `<Projekt>.<Testart>`.
+- `backend/src/AgentForge.Host` — der Composition Root. Die einzige Stelle, die alles kennt.
+- `backend/src/AgentForge.Core` — Ergebnistypen, Zeit, Benutzer. Kennt weder ASP.NET noch EF Core.
+- `backend/src/AgentForge.Areas.Abstractions` — `IArea` und die Registrierungsmaschinerie.
+- `backend/src/Areas/*` — die fachlichen Bereiche.
+- `backend/tests/*` — benannt nach dem Muster `<Projekt>.<Testart>`.
+- `frontend/*` - das Frontend
 - `docs/superpowers/` — Specs und Pläne.
 
 ## Einen Bereich hinzufügen
