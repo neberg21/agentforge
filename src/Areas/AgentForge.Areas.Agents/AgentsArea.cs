@@ -8,7 +8,6 @@ using AgentForge.Areas.Agents.Runtime.Llm;
 using AgentForge.Areas.Agents.Runtime.Queue;
 using AgentForge.Areas.Agents.Runtime.Tools;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
