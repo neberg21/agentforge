@@ -41,8 +41,20 @@ Konfiguration in `appsettings.json` / `appsettings.Development.json`:
 | `Areas:Agents:Llm:UseFake` | `true` → Scripted-LLM ohne Netz (Development-Vorgabe) |
 | `Areas:Agents:MaxConcurrentRuns` | Parallelität des Hintergrund-Workers |
 | `Areas:Agents:Pricing:*` | Tokenpreise für die Kostenschätzung |
+| `Areas:Agents:Workspace:Enabled` | `true` → echte Workspace-Tools + Push vor `Completed` |
+| `Areas:Agents:Workspace:RemoteUrl` | Git-Remote für Clone/Push |
+| `Areas:Agents:Workspace:LocalPath` | Lokaler Clone (absolut oder relativ zum Content-Root) |
+| `Areas:Agents:Workspace:BaseRef` | Ausgangs-Ref für Worktrees (Vorgabe `main`) |
+| `Areas:Agents:Workspace:WorktreesRoot` | Verzeichnis für Run-Worktrees (typisch `workspaces/`) |
+| `Areas:Agents:Workspace:ShellTimeout` | Timeout für `run_shell` |
+| `Areas:Agents:Workspace:MaxOutputChars` | Kürzung von stdout/stderr |
 
 In Development ist `UseFake` standardmäßig `true`, damit `dotnet run` ohne Key startet.
+`Workspace:Enabled` bleibt standardmäßig `false` (Stub-Tools und Complete im Loop wie Teilprojekt 3).
+Bei `Enabled: true` arbeitet jeder Run in einem Git-Worktree auf Branch `run/{runId}`;
+nach erfolgreichem Loop pusht die Runtime und setzt erst dann `Completed`. Agent-Commits
+laufen über `run_shell`; Git-Credentials kommen vom Host (Credential Helper), nicht aus
+`appsettings`. Docker/Container-Executor folgt in einem späteren Teilprojekt.
 Für echte NanoGPT-Aufrufe lokal:
 
 ```bash
@@ -53,7 +65,7 @@ und in `appsettings.Development.json` `UseFake` auf `false` setzen (oder per Env
 Ohne Key und mit `UseFake: false` bricht der Start mit Validierungsfehler ab.
 
 `POST /api/agents/runs` legt den Run als `Pending` an und stellt ihn sofort in die
-Warteschlange. Ein Worker führt den Turn-Loop aus (LLM + Stub-Tools). Clients können
+Warteschlange. Ein Worker führt den Turn-Loop aus (LLM + Tools). Clients können
 per `GET /api/agents/runs/{id}` pollen oder `GET /api/agents/runs/{id}/stream` (SSE)
 folgen. Abbruch bleibt über `POST .../cancel` möglich, solange der Run `Pending` oder
 `Running` ist.
@@ -66,10 +78,13 @@ dotnet test
 
 ## Stand
 
-Umgesetzt sind Teilprojekte 1–3:
+Umgesetzt sind Teilprojekte 1–4:
 
 - Specs: `docs/superpowers/specs/2026-07-29-agentforge-skeleton-agents-area-design.md`,
-  `docs/superpowers/specs/2026-07-30-agentforge-agent-runtime-design.md`
+  `docs/superpowers/specs/2026-07-30-agentforge-agent-runtime-design.md`,
+  `docs/superpowers/specs/2026-07-30-agentforge-workspace-tools-design.md`
 - Skelett, Area-Konvention, Agent-/Run-Verwaltung
-- Agent-Runtime: Auto-Start nach Create, Stub-Tools, Fake- oder HTTP-LLM, Token/Kosten,
+- Agent-Runtime: Auto-Start nach Create, Tools, Fake- oder HTTP-LLM, Token/Kosten,
   SSE und Polling, Cancel aus Pending/Running
+- Workspace-Tools: Host-seitiges `read_file` / `write_file` / `run_shell` auf Git-Worktrees,
+  Push vor `Completed` (kein Docker in diesem Teilprojekt)
