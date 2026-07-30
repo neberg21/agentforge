@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <UserSecretsId>agentforge-host-7c3e9a2b-4f18-4d6e-9b1a-8e5c2d0f6a44</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AgentForge.Core\AgentForge.Core.csproj" />
+    <ProjectReference Include="..\AgentForge.Areas.Abstractions\AgentForge.Areas.Abstractions.csproj" />
+    <ProjectReference Include="..\Areas\AgentForge.Areas.Agents\AgentForge.Areas.Agents.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+  </ItemGroup>
+  <Target Name="PublishAgentForgeWeb" BeforeTargets="ComputeFilesToPublish" Condition="'$(SkipWebBuild)' != 'true'">
+    <PropertyGroup>
+      <_WebRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\AgentForge.Web'))</_WebRoot>
+    </PropertyGroup>
+    <Exec WorkingDirectory="$(_WebRoot)" Command="npm ci" Condition="Exists('$(_WebRoot)\package-lock.json')" />
+    <Exec WorkingDirectory="$(_WebRoot)" Command="npm install" Condition="!Exists('$(_WebRoot)\package-lock.json')" />
+    <Exec WorkingDirectory="$(_WebRoot)" Command="npm run build" />
+    <ItemGroup>
+      <_WebDist Include="$(_WebRoot)\dist\**\*" />
+      <ResolvedFileToPublish Include="@(_WebDist)">
+        <RelativePath>wwwroot\%(_WebDist.RecursiveDir)%(_WebDist.Filename)%(_WebDist.Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

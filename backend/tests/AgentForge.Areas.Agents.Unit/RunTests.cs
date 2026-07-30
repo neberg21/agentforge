@@ -1,0 +1,131 @@
+namespace AgentForge.Areas.Agents.Unit;
+
+public class RunTests
+{
+    private static Agent NewAgent(TestClock clock) =>
+        Agent.Create("owner-1", new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, []), clock.UtcNow);
+
+    [Fact]
+    public void Create_WhenCalled_StartsPending()
+    {
+        var clock = TestClock.AtEpoch();
+        var agent = NewAgent(clock);
+
+        var run = Run.Create(agent, "Baue eine Todo-App.", clock.UtcNow);
+
+        Assert.Equal(RunStatus.Pending, run.Status);
+        Assert.Equal(agent.Id, run.AgentId);
+        Assert.Equal("owner-1", run.OwnerId);
+        Assert.Equal("Baue eine Todo-App.", run.Objective);
+        Assert.Equal(clock.UtcNow, run.CreatedAt);
+        Assert.Null(run.StartedAt);
+        Assert.Null(run.CompletedAt);
+        Assert.Null(run.Error);
+        Assert.Null(run.PromptTokens);
+        Assert.Null(run.CompletionTokens);
+        Assert.Null(run.CostEstimate);
+    }
+
+    [Fact]
+    public void Create_WhenCalled_AddsSystemAndUserMessages()
+    {
+        var clock = TestClock.AtEpoch();
+        var agent = NewAgent(clock);
+
+        var run = Run.Create(agent, "Baue eine Todo-App.", clock.UtcNow);
+
+        Assert.Equal(2, run.Messages.Count);
+        Assert.Equal(0, run.Messages[0].Sequence);
+        Assert.Equal(MessageRole.System, run.Messages[0].Role);
+        Assert.Equal("Du bist hilfreich.", run.Messages[0].Content);
+        Assert.Equal(1, run.Messages[1].Sequence);
+        Assert.Equal(MessageRole.User, run.Messages[1].Role);
+        Assert.Equal("Baue eine Todo-App.", run.Messages[1].Content);
+    }
+
+    [Fact]
+    public void Create_WhenAgentChangesLater_SnapshotStaysFrozen()
+    {
+        var clock = TestClock.AtEpoch();
+        var agent = NewAgent(clock);
+        var run = Run.Create(agent, "Baue eine Todo-App.", clock.UtcNow);
+
+        agent.Update(
+            new AgentDefinition("Builder", null, "Voellig anderer Prompt.", "another-model", 1.0, 512, 3, ["shell"]),
+            clock.Advance(TimeSpan.FromMinutes(1)));
+
+        Assert.Equal("Du bist hilfreich.", run.AgentSnapshot.SystemPrompt);
+        Assert.Equal("some-model", run.AgentSnapshot.Model);
+        Assert.Empty(run.AgentSnapshot.AllowedTools);
+    }
+
+    [Fact]
+    public void Create_WhenAgentToolsMutate_SnapshotToolsStayIndependent()
+    {
+        var clock = TestClock.AtEpoch();
+        var agent = Agent.Create(
+            "owner-1",
+            new AgentDefinition("Builder", null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, ["read_file"]),
+            clock.UtcNow);
+        var run = Run.Create(agent, "Baue eine Todo-App.", clock.UtcNow);
+
+        agent.AllowedTools[0] = "shell";
+
+        Assert.Equal(["read_file"], run.AgentSnapshot.AllowedTools);
+    }
+
+    [Fact]
+    public void Cancel_WhenPending_SetsStatusCompletedAtAndNewToken()
+    {
+        var clock = TestClock.AtEpoch();
+        var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
+        var tokenBefore = run.ConcurrencyToken;
+
+        run.Cancel(clock.Advance(TimeSpan.FromSeconds(30)));
+
+        Assert.Equal(RunStatus.Cancelled, run.Status);
+        Assert.Equal(clock.UtcNow, run.CompletedAt);
+        Assert.NotEqual(tokenBefore, run.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void Cancel_WhenAlreadyCancelled_Throws()
+    {
+        var clock = TestClock.AtEpoch();
+        var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
+        run.Cancel(clock.UtcNow);
+
+        Assert.False(run.CanTransitionTo(RunStatus.Cancelled));
+        Assert.Throws<InvalidOperationException>(() => run.Cancel(clock.UtcNow));
+    }
+
+    [Fact]
+    public void AppendMessage_WhenCalledRepeatedly_AssignsSequentialNumbers()
+    {
+        var clock = TestClock.AtEpoch();
+        var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
+
+        run.AppendMessage(MessageRole.Assistant, "Alles klar.", clock.UtcNow);
+
+        Assert.Equal([0, 1, 2], run.Messages.Select(m => m.Sequence));
+    }
+
+    [Fact]
+    public void AppendMessage_WhenToolRoleLacksToolCallId_Throws()
+    {
+        var clock = TestClock.AtEpoch();
+        var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
+
+        Assert.Throws<ArgumentException>(() => run.AppendMessage(MessageRole.Tool, "Ergebnis", clock.UtcNow));
+    }
+
+    [Fact]
+    public void AppendMessage_WhenNonToolRoleHasToolCallId_Throws()
+    {
+        var clock = TestClock.AtEpoch();
+        var run = Run.Create(NewAgent(clock), "Baue eine Todo-App.", clock.UtcNow);
+
+        Assert.Throws<ArgumentException>(
+            () => run.AppendMessage(MessageRole.Assistant, "Text", clock.UtcNow, toolCallId: "call_1"));
+    }
+}
