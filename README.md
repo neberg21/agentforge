@@ -1,7 +1,7 @@
 # AgentForge
 
 Ein modularer .NET-Monolith, in dem fachlich getrennte Bereiche als Module eines
-einzigen Hosts leben. Der erste Bereich verwaltet KI-Agenten.
+einzigen Hosts leben. Der erste Bereich verwaltet KI-Agenten und führt Runs aus.
 
 ## Aufbau
 
@@ -30,6 +30,24 @@ dotnet run --project src/AgentForge.Host
 Die Datenbank ist SQLite unter `.data/agentforge.db` und wird beim Start angelegt.
 In der Entwicklungsumgebung liegt die API-Oberfläche unter `/scalar/v1`.
 
+### Agents-Runtime (`Areas:Agents`)
+
+Konfiguration in `appsettings.json` / `appsettings.Development.json`:
+
+| Schlüssel | Bedeutung |
+|---|---|
+| `Areas:Agents:Llm:BaseUrl` | OpenAI-kompatible Basis-URL (z. B. NanoGPT) |
+| `Areas:Agents:Llm:ApiKey` | Bearer-Token; Pflicht, wenn `UseFake` false ist |
+| `Areas:Agents:Llm:UseFake` | `true` → Scripted-LLM ohne Netz (Development-Vorgabe) |
+| `Areas:Agents:MaxConcurrentRuns` | Parallelität des Hintergrund-Workers |
+| `Areas:Agents:Pricing:*` | Tokenpreise für die Kostenschätzung |
+
+`POST /api/agents/runs` legt den Run als `Pending` an und stellt ihn sofort in die
+Warteschlange. Ein Worker führt den Turn-Loop aus (LLM + Stub-Tools). Clients können
+per `GET /api/agents/runs/{id}` pollen oder `GET /api/agents/runs/{id}/stream` (SSE)
+folgen. Abbruch bleibt über `POST .../cancel` möglich, solange der Run `Pending` oder
+`Running` ist.
+
 ## Tests
 
 ```bash
@@ -38,8 +56,10 @@ dotnet test
 
 ## Stand
 
-Umgesetzt sind Teilprojekt 1 und 2 der Spec in
-`docs/superpowers/specs/2026-07-29-agentforge-skeleton-agents-area-design.md`:
-Skelett, Area-Konvention und die Verwaltung von Agenten und Runs. Es gibt noch keinen
-Aufruf eines Sprachmodells und keine Ausführung — ein Run bleibt `Pending`, bis er
-abgebrochen wird.
+Umgesetzt sind Teilprojekte 1–3:
+
+- Specs: `docs/superpowers/specs/2026-07-29-agentforge-skeleton-agents-area-design.md`,
+  `docs/superpowers/specs/2026-07-30-agentforge-agent-runtime-design.md`
+- Skelett, Area-Konvention, Agent-/Run-Verwaltung
+- Agent-Runtime: Auto-Start nach Create, Stub-Tools, Fake- oder HTTP-LLM, Token/Kosten,
+  SSE und Polling, Cancel aus Pending/Running
