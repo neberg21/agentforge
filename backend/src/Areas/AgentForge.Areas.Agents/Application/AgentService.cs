@@ -46,6 +46,11 @@ public sealed class AgentService
         return agent is null ? AgentErrors.AgentNotFound(id) : agent;
     }
 
+    public Task<Agent?> FindActiveByNameAsync(string name, CancellationToken ct) =>
+        _db.Agents.FirstOrDefaultAsync(
+            agent => agent.Name == name && agent.ArchivedAt == null,
+            ct);
+
     public async Task<Page<Agent>> ListAsync(PageRequest page, string? q, CancellationToken ct)
     {
         var query = _db.Agents.Where(agent => agent.ArchivedAt == null);

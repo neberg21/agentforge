@@ -82,6 +82,7 @@ public sealed class AgentsArea : IArea
         services.AddScoped<AgentService>();
         services.AddScoped<RunService>();
         services.AddScoped<ConversationService>();
+        services.AddScoped<BuilderSessionService>();
 
         services.AddHealthChecks().AddDbContextCheck<AgentsDbContext>("agents-db");
     }
