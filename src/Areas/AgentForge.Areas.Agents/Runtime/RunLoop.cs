@@ -97,6 +97,11 @@ public sealed class RunLoop
 
                 if (completion.ToolCalls.Count == 0)
                 {
+                    if (_options.Workspace.Enabled)
+                    {
+                        return;
+                    }
+
                     run.Complete(_clock.UtcNow);
                     await _db.SaveChangesAsync(ct);
                     Publish(run.Id, RunEventType.Status, $"{{\"status\":\"{run.Status}\"}}");

@@ -1,4 +1,5 @@
 using AgentForge.Areas.Agents.Runtime;
+using AgentForge.Areas.Agents.Runtime.Workspace;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -42,8 +43,25 @@ public sealed class RunWorker : BackgroundService
         try
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
-            var loop = scope.ServiceProvider.GetRequiredService<RunLoop>();
-            await loop.ExecuteAsync(runId, stoppingToken);
+            var session = scope.ServiceProvider.GetRequiredService<IRunWorkspaceSession>();
+            var started = await session.BeginAsync(runId, stoppingToken);
+            if (!started)
+            {
+                return;
+            }
+
+            session.Bind();
+
+            try
+            {
+                var loop = scope.ServiceProvider.GetRequiredService<RunLoop>();
+                await loop.ExecuteAsync(runId, stoppingToken);
+            }
+            finally
+            {
+                session.Unbind();
+                await session.FinishAsync(runId, CancellationToken.None);
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

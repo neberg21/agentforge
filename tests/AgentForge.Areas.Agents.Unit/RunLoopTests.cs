@@ -25,14 +25,42 @@ public class RunLoopTests
     private static RunLoop CreateLoop(
         AgentsDatabase database,
         ILlmClient llm,
-        IRunEventBus? bus = null)
+        IRunEventBus? bus = null,
+        AgentsOptions? agentsOptions = null)
     {
         var context = database.NewContext();
         var tools = new ToolRegistry();
         var events = bus ?? new InProcessRunEventBus();
         var clock = TestClock.AtEpoch();
-        var options = Options.Create(CreateOptions());
+        var options = Options.Create(agentsOptions ?? CreateOptions());
         return new RunLoop(context, llm, tools, events, clock, options);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenWorkspaceEnabled_LeavesRunningOnNaturalSuccess()
+    {
+        using var database = new AgentsDatabase();
+        var agent = Agent.Create(database.CurrentUser.OwnerId, Definition(), TestClock.AtEpoch().UtcNow);
+        var run = Run.Create(agent, "Los.", TestClock.AtEpoch().UtcNow);
+
+        await using (var context = database.NewContext())
+        {
+            context.Agents.Add(agent);
+            context.Runs.Add(run);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        var result = new LlmCompletionResult("Fertig.", [], new LlmUsage(10, 20));
+        var llm = new ScriptedLlmClient([result]);
+        var options = CreateOptions();
+        options.Workspace.Enabled = true;
+        var loop = CreateLoop(database, llm, agentsOptions: options);
+
+        await loop.ExecuteAsync(run.Id, TestContext.Current.CancellationToken);
+
+        await using var verify = database.NewContext();
+        var loaded = await verify.Runs.SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(RunStatus.Running, loaded.Status);
     }
 
     [Fact]

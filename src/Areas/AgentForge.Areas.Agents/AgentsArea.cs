@@ -7,6 +7,7 @@ using AgentForge.Areas.Agents.Runtime.Events;
 using AgentForge.Areas.Agents.Runtime.Llm;
 using AgentForge.Areas.Agents.Runtime.Queue;
 using AgentForge.Areas.Agents.Runtime.Tools;
+using AgentForge.Areas.Agents.Runtime.Workspace;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,11 +40,34 @@ public sealed class AgentsArea : IArea
                     || options.Llm.UseFake
                     || !string.IsNullOrWhiteSpace(options.Llm.ApiKey),
                 "Areas:Agents:Llm:ApiKey is required when UseFake is false.")
+            .Validate(
+                options => !options.Workspace.Enabled
+                    || (!string.IsNullOrWhiteSpace(options.Workspace.RemoteUrl)
+                        && !string.IsNullOrWhiteSpace(options.Workspace.LocalPath)
+                        && !string.IsNullOrWhiteSpace(options.Workspace.WorktreesRoot)),
+                "Areas:Agents:Workspace requires RemoteUrl, LocalPath, and WorktreesRoot when Enabled.")
             .ValidateOnStart();
 
         services.AddSingleton<IRunEventBus, InProcessRunEventBus>();
         services.AddSingleton<IRunQueue, ChannelRunQueue>();
-        services.AddSingleton<IToolRegistry, ToolRegistry>();
+        services.AddSingleton<IGitWorkspace, GitCliWorkspace>();
+        services.AddScoped<IRunWorkspaceSession, RunWorkspaceSession>();
+        services.AddSingleton<IToolRegistry>(provider =>
+        {
+            var registry = new ToolRegistry();
+            var options = provider.GetRequiredService<IOptions<AgentsOptions>>();
+            if (options.Value.Workspace.Enabled)
+            {
+                var readFile = new ReadFileTool();
+                var writeFile = new WriteFileTool();
+                var runShell = new RunShellTool(options);
+                registry.Register(readFile);
+                registry.Register(writeFile);
+                registry.Register(runShell);
+            }
+
+            return registry;
+        });
         services.AddScoped<RunLoop>();
         services.AddHostedService<RunWorker>();
 
