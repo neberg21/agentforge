@@ -46,15 +46,28 @@ public sealed class AgentService
         return agent is null ? AgentErrors.AgentNotFound(id) : agent;
     }
 
-    public async Task<Page<Agent>> ListAsync(PageRequest page, CancellationToken ct)
+    public async Task<Page<Agent>> ListAsync(PageRequest page, string? q, CancellationToken ct)
     {
-        var query = _db.Agents.Where(agent => agent.ArchivedAt == null).OrderBy(agent => agent.Name);
+        var query = _db.Agents.Where(agent => agent.ArchivedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim();
+            query = query.Where(agent => EF.Functions.Like(agent.Name, "%" + EscapeLike(term) + "%"));
+        }
+
+        query = query.OrderBy(agent => agent.Name);
 
         var total = await query.CountAsync(ct);
         var items = await query.Skip(page.Skip).Take(page.Take).ToListAsync(ct);
 
         return new Page<Agent>(items, total, page.Skip, page.Take);
     }
+
+    private static string EscapeLike(string value) =>
+        value.Replace("[", "[[]", StringComparison.Ordinal)
+            .Replace("%", "[%]", StringComparison.Ordinal)
+            .Replace("_", "[_]", StringComparison.Ordinal);
 
     public async Task<Result<Agent>> UpdateAsync(
         Guid id,

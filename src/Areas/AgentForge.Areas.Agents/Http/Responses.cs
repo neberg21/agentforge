@@ -50,12 +50,14 @@ public sealed record RunResponse(
     int? PromptTokens,
     int? CompletionTokens,
     decimal? CostEstimate,
-    Guid ConcurrencyToken)
+    Guid ConcurrencyToken,
+    Guid? ConversationId)
 {
     public static RunResponse From(Run run) =>
         new(run.Id, run.AgentId, AgentSnapshotResponse.From(run.AgentSnapshot), run.Objective,
             run.Status.ToString(), run.CreatedAt, run.StartedAt, run.CompletedAt, run.Error,
-            run.PromptTokens, run.CompletionTokens, run.CostEstimate, run.ConcurrencyToken);
+            run.PromptTokens, run.CompletionTokens, run.CostEstimate, run.ConcurrencyToken,
+            run.ConversationId);
 }
 
 public sealed record RunMessageResponse(

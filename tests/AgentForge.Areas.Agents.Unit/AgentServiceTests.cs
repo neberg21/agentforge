@@ -116,7 +116,7 @@ public class AgentServiceTests
         var archived = await service.CreateAsync(Definition("Bravo"), TestContext.Current.CancellationToken);
         await service.ArchiveAsync(archived.Value!.Id, TestContext.Current.CancellationToken);
 
-        var page = await service.ListAsync(PageRequest.From(0, 10), TestContext.Current.CancellationToken);
+        var page = await service.ListAsync(PageRequest.From(0, 10), null, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, page.Total);
         Assert.Equal(["Alpha", "Charlie"], page.Items.Select(a => a.Name));
@@ -133,10 +133,25 @@ public class AgentServiceTests
             await service.CreateAsync(Definition(name), TestContext.Current.CancellationToken);
         }
 
-        var page = await service.ListAsync(PageRequest.From(1, 1), TestContext.Current.CancellationToken);
+        var page = await service.ListAsync(PageRequest.From(1, 1), null, TestContext.Current.CancellationToken);
 
         Assert.Equal(3, page.Total);
         Assert.Equal(["Bravo"], page.Items.Select(a => a.Name));
+    }
+
+    [Fact]
+    public async Task ListAsync_WhenQProvided_FiltersByNameContains()
+    {
+        using var database = new AgentsDatabase();
+        var (context, service) = NewService(database, TestClock.AtEpoch());
+        await using var _ = context;
+        await service.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+        await service.CreateAsync(Definition("max"), TestContext.Current.CancellationToken);
+
+        var page = await service.ListAsync(PageRequest.From(0, 10), "le", TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, page.Total);
+        Assert.Equal("leo", page.Items[0].Name);
     }
 
     [Fact]

@@ -35,7 +35,7 @@ public static class RunEndpoints
             (await service.GetAsync(id, ct)).ToHttpResult(run => TypedResults.Ok(RunResponse.From(run))));
 
         group.MapPost("/", async (RunService service, CreateRunRequest request, CancellationToken ct) =>
-                (await service.CreateAsync(request.AgentId, request.Objective, ct)).ToHttpResult(run =>
+                (await service.CreateAsync(request.AgentId, request.Objective, request.ConversationId, ct)).ToHttpResult(run =>
                     TypedResults.Created($"/api/agents/runs/{run.Id}", RunResponse.From(run))))
             .AddEndpointFilter<ValidationFilter<CreateRunRequest>>();
 

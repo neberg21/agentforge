@@ -36,9 +36,11 @@ public sealed class Run
 
     public Guid ConcurrencyToken { get; private set; }
 
+    public Guid? ConversationId { get; private set; }
+
     public IReadOnlyList<RunMessage> Messages => _messages;
 
-    public static Run Create(Agent agent, string objective, DateTimeOffset now)
+    public static Run Create(Agent agent, string objective, DateTimeOffset now, Guid? conversationId = null)
     {
         var run = new Run
         {
@@ -49,7 +51,8 @@ public sealed class Run
             Objective = objective,
             Status = RunStatus.Pending,
             CreatedAt = now,
-            ConcurrencyToken = Guid.CreateVersion7()
+            ConcurrencyToken = Guid.CreateVersion7(),
+            ConversationId = conversationId
         };
 
         run.AppendMessage(MessageRole.System, run.AgentSnapshot.SystemPrompt, now);

@@ -12,9 +12,9 @@ public static class AgentEndpoints
     {
         var group = routes.MapGroup("/definitions").WithTags("agent-definitions");
 
-        group.MapGet("/", async (AgentService service, int? skip, int? take, CancellationToken ct) =>
+        group.MapGet("/", async (AgentService service, string? q, int? skip, int? take, CancellationToken ct) =>
         {
-            var page = await service.ListAsync(PageRequest.From(skip, take), ct);
+            var page = await service.ListAsync(PageRequest.From(skip, take), q, ct);
 
             return TypedResults.Ok(new PagedResponse<AgentResponse>(
                 [.. page.Items.Select(AgentResponse.From)],

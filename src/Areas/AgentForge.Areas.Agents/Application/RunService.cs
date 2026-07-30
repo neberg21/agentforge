@@ -19,7 +19,11 @@ public sealed class RunService
         _queue = queue;
     }
 
-    public async Task<Result<Run>> CreateAsync(Guid agentId, string objective, CancellationToken ct)
+    public async Task<Result<Run>> CreateAsync(
+        Guid agentId,
+        string objective,
+        Guid? conversationId,
+        CancellationToken ct)
     {
         var agent = await _db.Agents.FirstOrDefaultAsync(candidate => candidate.Id == agentId, ct);
 
@@ -33,7 +37,24 @@ public sealed class RunService
             return AgentErrors.AgentArchived(agentId);
         }
 
-        var run = Run.Create(agent, objective, _clock.UtcNow);
+        if (conversationId is { } linkedId)
+        {
+            var conversation = await _db.Conversations.FirstOrDefaultAsync(
+                candidate => candidate.Id == linkedId,
+                ct);
+
+            if (conversation is null)
+            {
+                return AgentErrors.ConversationNotFound(linkedId);
+            }
+
+            if (conversation.IsArchived)
+            {
+                return AgentErrors.ConversationArchived(linkedId);
+            }
+        }
+
+        var run = Run.Create(agent, objective, _clock.UtcNow, conversationId);
         _db.Runs.Add(run);
         await _db.SaveChangesAsync(ct);
         _queue.Enqueue(run.Id);

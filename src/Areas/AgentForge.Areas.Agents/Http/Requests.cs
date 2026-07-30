@@ -26,7 +26,8 @@ public sealed record UpdateAgentRequest(
 
 public sealed record CreateRunRequest(
     Guid AgentId,
-    [property: Required][property: StringLength(20_000, MinimumLength = 1)] string Objective);
+    [property: Required][property: StringLength(20_000, MinimumLength = 1)] string Objective,
+    Guid? ConversationId);
 
 public sealed record CancelRunRequest(Guid ConcurrencyToken);
 
