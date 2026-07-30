@@ -40,7 +40,7 @@ bld/
 .vs/
 # Host SPA output (built on publish from AgentForge.Web)
 **/wwwroot/
-src/AgentForge.Web/dist/
+frontend/dist/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
