@@ -37,10 +37,20 @@ Konfiguration in `appsettings.json` / `appsettings.Development.json`:
 | Schlüssel | Bedeutung |
 |---|---|
 | `Areas:Agents:Llm:BaseUrl` | OpenAI-kompatible Basis-URL (z. B. NanoGPT) |
-| `Areas:Agents:Llm:ApiKey` | Bearer-Token; Pflicht, wenn `UseFake` false ist |
+| `Areas:Agents:Llm:ApiKey` | Bearer-Token; **nicht** in Git committen — User-Secrets oder Env |
 | `Areas:Agents:Llm:UseFake` | `true` → Scripted-LLM ohne Netz (Development-Vorgabe) |
 | `Areas:Agents:MaxConcurrentRuns` | Parallelität des Hintergrund-Workers |
 | `Areas:Agents:Pricing:*` | Tokenpreise für die Kostenschätzung |
+
+In Development ist `UseFake` standardmäßig `true`, damit `dotnet run` ohne Key startet.
+Für echte NanoGPT-Aufrufe lokal:
+
+```bash
+dotnet user-secrets set "Areas:Agents:Llm:ApiKey" "<dein-key>" --project src/AgentForge.Host
+```
+
+und in `appsettings.Development.json` `UseFake` auf `false` setzen (oder per Env überschreiben).
+Ohne Key und mit `UseFake: false` bricht der Start mit Validierungsfehler ab.
 
 `POST /api/agents/runs` legt den Run als `Pending` an und stellt ihn sofort in die
 Warteschlange. Ein Worker führt den Turn-Loop aus (LLM + Stub-Tools). Clients können
