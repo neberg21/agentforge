@@ -1,6 +1,7 @@
 import { apiGet, apiSend } from '../../lib/http'
 import type {
   AgentDto,
+  AgentSuggestionsDto,
   BuilderSessionDto,
   ConversationDto,
   ConversationMessageDto,
@@ -28,6 +29,10 @@ export function listAgents(query: {
 
 export function getAgent(id: string): Promise<AgentDto> {
   return apiGet(`${definitions}/${id}`)
+}
+
+export function getAgentSuggestions(): Promise<AgentSuggestionsDto> {
+  return apiGet(`${definitions}/suggestions`)
 }
 
 export function createAgent(body: Record<string, unknown>): Promise<AgentDto> {

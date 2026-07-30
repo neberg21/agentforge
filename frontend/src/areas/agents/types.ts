@@ -19,6 +19,10 @@ export type BuilderSessionDto = {
   builderAgentId: string
 }
 
+export type AgentSuggestionsDto = {
+  name: string
+}
+
 export type AgentSnapshotDto = {
   name: string
   systemPrompt: string

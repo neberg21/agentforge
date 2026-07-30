@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { createAgent, getAgent, updateAgent } from './api'
+import { createAgent, getAgent, getAgentSuggestions, updateAgent } from './api'
 import type { ApiError } from '../../lib/http'
 
 const empty = {
@@ -41,6 +41,31 @@ export function AgentFormPage() {
       setToken(agent.concurrencyToken)
     })
   }, [id])
+
+  useEffect(() => {
+    if (editing) {
+      return
+    }
+    let cancelled = false
+    void getAgentSuggestions()
+      .then((suggestions) => {
+        if (cancelled) {
+          return
+        }
+        setForm((current) => {
+          if (current.name.trim() !== '') {
+            return current
+          }
+          return { ...current, name: suggestions.name }
+        })
+      })
+      .catch(() => {
+        // leave name empty
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [editing])
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
