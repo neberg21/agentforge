@@ -486,6 +486,7 @@ $RECYCLE.BIN/
 # AgentForge
 .data/
 workspaces/
+.worktrees/
 
 # Brainstorming-Mockups (Superpowers Visual Companion)
 .superpowers/
