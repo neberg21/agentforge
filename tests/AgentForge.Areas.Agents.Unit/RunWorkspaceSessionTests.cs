@@ -51,7 +51,7 @@ public class RunWorkspaceSessionTests
         };
 
     [Fact]
-    public async Task BeginAsync_calls_ensure_fetch_and_add_worktree()
+    public async Task BeginAsync_WhenEnabled_EnsuresFetchAndAddsWorktree()
     {
         using var database = new AgentsDatabase();
         var root = Path.Combine(Path.GetTempPath(), "ws-sess-" + Guid.NewGuid().ToString("N"));
@@ -110,7 +110,7 @@ public class RunWorkspaceSessionTests
     }
 
     [Fact]
-    public async Task FinishAsync_when_Running_pushes_then_completes_and_removes()
+    public async Task FinishAsync_WhenRunning_PushesThenCompletesAndRemoves()
     {
         using var database = new AgentsDatabase();
         var root = Path.Combine(Path.GetTempPath(), "ws-sess-" + Guid.NewGuid().ToString("N"));
@@ -179,7 +179,7 @@ public class RunWorkspaceSessionTests
     }
 
     [Fact]
-    public async Task FinishAsync_when_Failed_does_not_push()
+    public async Task FinishAsync_WhenFailed_DoesNotPush()
     {
         using var database = new AgentsDatabase();
         var root = Path.Combine(Path.GetTempPath(), "ws-sess-" + Guid.NewGuid().ToString("N"));

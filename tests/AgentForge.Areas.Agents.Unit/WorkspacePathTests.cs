@@ -5,7 +5,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class WorkspacePathTests
 {
     [Fact]
-    public void TryResolve_akzeptiert_relative_Pfade_unter_Root()
+    public void TryResolve_WhenRelativeUnderRoot_ReturnsTrue()
     {
         var root = Path.Combine(Path.GetTempPath(), "ws-jail-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -22,7 +22,7 @@ public class WorkspacePathTests
     }
 
     [Fact]
-    public void TryResolve_lehnt_Parent_Escape_ab()
+    public void TryResolve_WhenParentEscape_ReturnsFalse()
     {
         var root = Path.Combine(Path.GetTempPath(), "ws-jail-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);

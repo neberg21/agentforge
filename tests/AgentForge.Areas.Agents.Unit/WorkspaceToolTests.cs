@@ -9,7 +9,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class WorkspaceToolTests
 {
     [Fact]
-    public async Task ReadFile_and_WriteFile_roundtrip_under_context_root()
+    public async Task ExecuteAsync_WhenWriteThenReadUnderRoot_ReturnsContent()
     {
         var root = Path.Combine(Path.GetTempPath(), "ws-tools-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -41,7 +41,7 @@ public class WorkspaceToolTests
     }
 
     [Fact]
-    public async Task ReadFile_without_context_returns_no_workspace()
+    public async Task ExecuteAsync_WhenNoWorkspace_ReturnsNoWorkspaceError()
     {
         RunWorkspaceContext.Current = null;
         var tool = new ReadFileTool();
@@ -50,7 +50,7 @@ public class WorkspaceToolTests
     }
 
     [Fact]
-    public async Task RunShell_uses_worktree_cwd()
+    public async Task ExecuteAsync_WhenInvoked_UsesWorktreeWorkingDirectory()
     {
         var root = Path.Combine(Path.GetTempPath(), "ws-tools-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);

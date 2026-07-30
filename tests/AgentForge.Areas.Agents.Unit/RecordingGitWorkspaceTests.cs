@@ -3,7 +3,7 @@ namespace AgentForge.Areas.Agents.Unit;
 public class RecordingGitWorkspaceTests
 {
     [Fact]
-    public async Task AddWorktreeAsync_records_call()
+    public async Task AddWorktreeAsync_WhenCalled_RecordsCall()
     {
         var git = new RecordingGitWorkspace();
         var worktree = Path.Combine(Path.GetTempPath(), "wt-" + Guid.NewGuid().ToString("N"));

@@ -48,7 +48,7 @@ public sealed class WorkspaceRunTests : IDisposable
     }
 
     [Fact]
-    public async Task Runs_WithWorkspaceEnabled_PushThenCompleteAndCleanup()
+    public async Task Runs_WhenWorkspaceEnabled_PushesThenCompletesAndCleansUp()
     {
         var ct = TestContext.Current.CancellationToken;
         using var client = _factory.CreateClient();
