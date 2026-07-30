@@ -1,5 +1,6 @@
 using AgentForge.Areas.Agents.Domain;
 using AgentForge.Areas.Agents.Persistence;
+using AgentForge.Areas.Agents.Runtime.Queue;
 using AgentForge.Core;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,13 @@ public sealed class RunService
 {
     private readonly AgentsDbContext _db;
     private readonly IClock _clock;
+    private readonly IRunQueue _queue;
 
-    public RunService(AgentsDbContext db, IClock clock)
+    public RunService(AgentsDbContext db, IClock clock, IRunQueue queue)
     {
         _db = db;
         _clock = clock;
+        _queue = queue;
     }
 
     public async Task<Result<Run>> CreateAsync(Guid agentId, string objective, CancellationToken ct)
@@ -33,6 +36,7 @@ public sealed class RunService
         var run = Run.Create(agent, objective, _clock.UtcNow);
         _db.Runs.Add(run);
         await _db.SaveChangesAsync(ct);
+        _queue.Enqueue(run.Id);
 
         return run;
     }

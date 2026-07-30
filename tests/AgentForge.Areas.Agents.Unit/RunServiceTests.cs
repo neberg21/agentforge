@@ -1,5 +1,6 @@
 using AgentForge.Areas.Agents.Application;
 using AgentForge.Areas.Agents.Persistence;
+using AgentForge.Areas.Agents.Runtime.Queue;
 
 namespace AgentForge.Areas.Agents.Unit;
 
@@ -8,8 +9,26 @@ public class RunServiceTests
     private static AgentDefinition Definition(string name = "Builder") =>
         new(name, null, "Du bist hilfreich.", "some-model", 0.5, 2048, 10, []);
 
-    private sealed record Fixture(AgentsDbContext Context, AgentService Agents, RunService Runs, TestClock Clock)
-        : IDisposable
+    private sealed class RecordingRunQueue : IRunQueue
+    {
+        public List<Guid> Enqueued { get; } = [];
+
+        public void Enqueue(Guid runId) => Enqueued.Add(runId);
+
+        public async IAsyncEnumerable<Guid> ReadAllAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+        {
+            await Task.Yield();
+            yield break;
+        }
+    }
+
+    private sealed record Fixture(
+        AgentsDbContext Context,
+        AgentService Agents,
+        RunService Runs,
+        TestClock Clock,
+        RecordingRunQueue Queue) : IDisposable
     {
         public void Dispose() => Context.Dispose();
     }
@@ -19,8 +38,9 @@ public class RunServiceTests
         var clock = TestClock.AtEpoch();
         var context = database.NewContext();
         var agents = new AgentService(context, database.CurrentUser, clock);
-        var runs = new RunService(context, clock);
-        return new Fixture(context, agents, runs, clock);
+        var queue = new RecordingRunQueue();
+        var runs = new RunService(context, clock, queue);
+        return new Fixture(context, agents, runs, clock, queue);
     }
 
     [Fact]
@@ -32,6 +52,7 @@ public class RunServiceTests
         var result = await fixture.Runs.CreateAsync(Guid.CreateVersion7(), "Los.", TestContext.Current.CancellationToken);
 
         Assert.Equal("agent_not_found", result.Error!.Value.Code);
+        Assert.Empty(fixture.Queue.Enqueued);
     }
 
     [Fact]
@@ -46,6 +67,7 @@ public class RunServiceTests
 
         Assert.Equal(ErrorKind.Conflict, result.Error!.Value.Kind);
         Assert.Equal("agent_archived", result.Error!.Value.Code);
+        Assert.Empty(fixture.Queue.Enqueued);
     }
 
     [Fact]
@@ -60,6 +82,7 @@ public class RunServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(RunStatus.Pending, result.Value!.Status);
         Assert.Equal("Du bist hilfreich.", result.Value.AgentSnapshot.SystemPrompt);
+        Assert.Equal([result.Value.Id], fixture.Queue.Enqueued);
 
         var messages = await fixture.Runs.GetMessagesAsync(result.Value.Id, TestContext.Current.CancellationToken);
 

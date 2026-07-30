@@ -1,3 +1,4 @@
+using AgentForge.Areas.Agents.Runtime.Queue;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -27,13 +28,23 @@ public sealed class AgentForgeFactory : WebApplicationFactory<Program>
             {
                 ["Database:Provider"] = "sqlite",
                 ["Database:ConnectionString"] = "Data Source=:memory:",
-                ["Auth:LocalOwnerId"] = "test-owner"
+                ["Auth:LocalOwnerId"] = "test-owner",
+                ["Areas:Agents:Llm:UseFake"] = "true",
+                ["Areas:Agents:Llm:BaseUrl"] = "http://localhost",
+                ["Areas:Agents:MaxConcurrentRuns"] = "2",
+                ["Areas:Agents:Pricing:PromptTokenPerMillion"] = "1",
+                ["Areas:Agents:Pricing:CompletionTokenPerMillion"] = "2"
             }));
 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IDbProvider>();
             services.AddSingleton<IDbProvider>(new SharedConnectionDbProvider(_connection));
+
+            // Keep existing endpoint tests deterministic: create stays Pending until Task 8
+            // execution coverage opts into the real channel queue.
+            services.RemoveAll<IRunQueue>();
+            services.AddSingleton<IRunQueue, NoOpRunQueue>();
         });
     }
 
@@ -47,8 +58,15 @@ public sealed class AgentForgeFactory : WebApplicationFactory<Program>
         }
     }
 
-    private sealed class SharedConnectionDbProvider(SqliteConnection connection) : IDbProvider
+    private sealed class SharedConnectionDbProvider : IDbProvider
     {
-        public void Apply(DbContextOptionsBuilder options) => options.UseSqlite(connection);
+        private readonly SqliteConnection _connection;
+
+        public SharedConnectionDbProvider(SqliteConnection connection)
+        {
+            _connection = connection;
+        }
+
+        public void Apply(DbContextOptionsBuilder options) => options.UseSqlite(_connection);
     }
 }
