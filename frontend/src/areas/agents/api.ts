@@ -1,6 +1,7 @@
 import { apiGet, apiSend } from '../../lib/http'
 import type {
   AgentDto,
+  BuilderSessionDto,
   ConversationDto,
   ConversationMessageDto,
   DraftRunDto,
@@ -31,6 +32,10 @@ export function getAgent(id: string): Promise<AgentDto> {
 
 export function createAgent(body: Record<string, unknown>): Promise<AgentDto> {
   return apiSend('POST', definitions, body)
+}
+
+export function startBuilderSession(): Promise<BuilderSessionDto> {
+  return apiSend('POST', '/api/agents/builder/session')
 }
 
 export function updateAgent(id: string, body: Record<string, unknown>): Promise<AgentDto> {

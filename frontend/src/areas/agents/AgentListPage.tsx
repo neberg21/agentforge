@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { archiveAgent, listAgents } from './api'
+import { archiveAgent, listAgents, startBuilderSession } from './api'
 import type { AgentDto } from './types'
 import { rememberItem } from '../../lib/recent'
 import type { ApiError } from '../../lib/http'
@@ -11,6 +11,7 @@ export function AgentListPage() {
   const [debounced, setDebounced] = useState('')
   const [items, setItems] = useState<AgentDto[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [startingBuilder, setStartingBuilder] = useState(false)
 
   useEffect(() => {
     const handle = window.setTimeout(() => setDebounced(q), 300)
@@ -40,12 +41,32 @@ export function AgentListPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Agents</h1>
-        <Link
-          to="/agents/definitions/new"
-          className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white"
-        >
-          New agent
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+            disabled={startingBuilder}
+            onClick={() => {
+              setStartingBuilder(true)
+              void startBuilderSession()
+                .then((session) => {
+                  navigate(`/agents/conversations/${session.conversationId}`)
+                })
+                .catch((err: ApiError) => {
+                  setError(err.detail ?? err.title)
+                })
+                .finally(() => setStartingBuilder(false))
+            }}
+          >
+            Create with assistant
+          </button>
+          <Link
+            to="/agents/definitions/new"
+            className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white"
+          >
+            New agent
+          </Link>
+        </div>
       </div>
       <input
         className="mb-4 w-full max-w-md rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"

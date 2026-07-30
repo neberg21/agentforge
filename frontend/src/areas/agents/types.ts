@@ -14,6 +14,11 @@ export type AgentDto = {
   concurrencyToken: string
 }
 
+export type BuilderSessionDto = {
+  conversationId: string
+  builderAgentId: string
+}
+
 export type AgentSnapshotDto = {
   name: string
   systemPrompt: string

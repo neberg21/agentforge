@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createConversation, listAgents, postConversationMessage, startRun } from '../areas/agents/api'
+import {
+  createConversation,
+  listAgents,
+  postConversationMessage,
+  startBuilderSession,
+  startRun,
+} from '../areas/agents/api'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -89,5 +95,24 @@ describe('agents api client', () => {
       method: 'POST',
       body: JSON.stringify({ participantAgentIds: ['a1', 'a2'] }),
     })
+  })
+
+  it('startBuilderSession posts builder session', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            conversationId: 'c1',
+            builderAgentId: 'a1',
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const session = await startBuilderSession()
+    expect(session).toEqual({ conversationId: 'c1', builderAgentId: 'a1' })
+    const [url, init] = lastFetchCall(fetchMock)
+    expect(String(url)).toBe('/api/agents/builder/session')
+    expect(init?.method).toBe('POST')
   })
 })
