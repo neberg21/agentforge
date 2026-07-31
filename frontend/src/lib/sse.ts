@@ -6,7 +6,7 @@ export function openEventSource(
   },
 ): () => void {
   const source = new EventSource(url)
-  const types = ['status', 'message', 'usage', 'error', 'done']
+  const types = ['status', 'message', 'usage', 'error', 'done', 'title']
   for (const type of types) {
     source.addEventListener(type, (event) => {
       // Native EventSource connection failures also use the name "error" and are

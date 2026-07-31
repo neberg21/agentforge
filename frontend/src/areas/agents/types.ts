@@ -62,9 +62,12 @@ export type RunMessageDto = {
 
 export type ParticipantDto = { agentId: string; name: string }
 
+export type TitleMode = 'auto' | 'paused' | 'locked'
+
 export type ConversationDto = {
   id: string
   title: string
+  titleMode: TitleMode
   participants: ParticipantDto[]
   lastMessageExcerpt: string | null
   lastMessageAt: string | null

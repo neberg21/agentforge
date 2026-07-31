@@ -99,6 +99,17 @@ export function archiveConversation(id: string): Promise<ConversationDto> {
   return apiSend('DELETE', `${conversations}/${id}`)
 }
 
+export function patchConversationTitle(
+  id: string,
+  body: {
+    action: 'set' | 'lock' | 'resume'
+    title?: string
+    concurrencyToken: string
+  },
+): Promise<ConversationDto> {
+  return apiSend('PATCH', `${conversations}/${id}/title`, body)
+}
+
 export function getConversationMessages(id: string): Promise<ConversationMessageDto[]> {
   return apiGet(`${conversations}/${id}/messages`)
 }

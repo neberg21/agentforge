@@ -10,7 +10,7 @@ import {
   postConversationMessage,
   startRun,
 } from './api'
-import type { AgentDto, ConversationDto, ConversationMessageDto } from './types'
+import type { AgentDto, ConversationDto, ConversationMessageDto, TitleMode } from './types'
 import { openEventSource } from '../../lib/sse'
 import {
   emptyTranscript,
@@ -24,6 +24,7 @@ import { ToolCallCard } from './ToolCallCard'
 import { MentionTextarea } from './MentionTextarea'
 import { MessageBody } from './MessageBody'
 import { AgentDraftCard } from './AgentDraftCard'
+import { ConversationTitleHeader } from './ConversationTitleHeader'
 import { parseAgentDraft, stripAgentDraftFence } from './agentDraft'
 import { autoMentionPosition } from './mentionConfig'
 import { prepareOutgoingMessage } from './mentions'
@@ -157,6 +158,7 @@ export function ConversationPage() {
   const formRef = useRef<HTMLFormElement>(null)
   const logRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
+  const titleEditingRef = useRef(false)
 
   const orderedMessages = messagesInOrder(state).filter((message) => message.role !== 'System')
   const messageIds = orderedMessages.map((message) => message.id).join(',')
@@ -176,9 +178,73 @@ export function ConversationPage() {
     if (!id) {
       return
     }
-    let stop: (() => void) | undefined
+
+    let stopped = false
+    let stopStream: (() => void) | undefined
+
+    const applyTitlePayload = (data: unknown) => {
+      if (titleEditingRef.current || !data || typeof data !== 'object') {
+        return
+      }
+      const payload = data as {
+        title?: string
+        titleMode?: TitleMode
+        concurrencyToken?: string
+      }
+      if (!payload.title || !payload.titleMode || !payload.concurrencyToken) {
+        return
+      }
+      setConversation((current) => {
+        if (!current) {
+          return current
+        }
+        return {
+          ...current,
+          title: payload.title!,
+          titleMode: payload.titleMode!,
+          concurrencyToken: payload.concurrencyToken!,
+        }
+      })
+      rememberItem({
+        kind: 'conversation',
+        id,
+        label: payload.title,
+      })
+    }
+
+    const connect = () => {
+      stopStream = openEventSource(`/api/agents/conversations/${id}/stream`, {
+        onEvent: (type, data) => {
+          if (type === 'title') {
+            applyTitlePayload(data)
+            return
+          }
+          dispatch({ type: 'sse', event: type, data })
+          if (type === 'done' && !stopped) {
+            stopStream?.()
+            void getConversation(id).then((fresh) => {
+              if (titleEditingRef.current) {
+                return
+              }
+              setConversation(fresh)
+              rememberItem({
+                kind: 'conversation',
+                id: fresh.id,
+                label: fresh.title,
+              })
+            })
+            connect()
+          }
+        },
+        onError: () => undefined,
+      })
+    }
+
     void Promise.all([getConversation(id), getConversationMessages(id)]).then(
       ([conversationValue, messages]) => {
+        if (stopped) {
+          return
+        }
         setConversation(conversationValue)
         rememberItem({
           kind: 'conversation',
@@ -189,13 +255,14 @@ export function ConversationPage() {
           type: 'hydrate',
           messages: toTranscript(messages),
         })
-        stop = openEventSource(`/api/agents/conversations/${id}/stream`, {
-          onEvent: (type, data) => dispatch({ type: 'sse', event: type, data }),
-          onError: () => undefined,
-        })
+        connect()
       },
     )
-    return () => stop?.()
+
+    return () => {
+      stopped = true
+      stopStream?.()
+    }
   }, [id])
 
   useEffect(() => {
@@ -281,7 +348,32 @@ export function ConversationPage() {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <h1 className="text-xl font-semibold">{conversation.title}</h1>
+      <ConversationTitleHeader
+        conversationId={conversation.id}
+        title={conversation.title}
+        titleMode={conversation.titleMode}
+        concurrencyToken={conversation.concurrencyToken}
+        onEditingChange={(editing) => {
+          titleEditingRef.current = editing
+        }}
+        onUpdated={(next) => {
+          setConversation((current) =>
+            current
+              ? {
+                  ...current,
+                  title: next.title,
+                  titleMode: next.titleMode,
+                  concurrencyToken: next.concurrencyToken,
+                }
+              : current,
+          )
+          rememberItem({
+            kind: 'conversation',
+            id: conversation.id,
+            label: next.title,
+          })
+        }}
+      />
       <div
         ref={logRef}
         className="flex-1 space-y-3 overflow-auto"
