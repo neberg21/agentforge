@@ -9,6 +9,8 @@ public class ResultExtensionsTests
     [InlineData(ErrorKind.NotFound, StatusCodes.Status404NotFound)]
     [InlineData(ErrorKind.Conflict, StatusCodes.Status409Conflict)]
     [InlineData(ErrorKind.Validation, StatusCodes.Status400BadRequest)]
+    [InlineData(ErrorKind.RateLimited, StatusCodes.Status429TooManyRequests)]
+    [InlineData(ErrorKind.DependencyFailure, StatusCodes.Status502BadGateway)]
     public void ToProblem_WhenErrorKindMapped_ReturnsExpectedStatusCode(ErrorKind kind, int expectedStatus)
     {
         var result = new Error(kind, "some_code", "Beschreibung.").ToProblem();
