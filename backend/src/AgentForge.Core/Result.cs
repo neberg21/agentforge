@@ -4,7 +4,9 @@ public enum ErrorKind
 {
     NotFound,
     Conflict,
-    Validation
+    Validation,
+    RateLimited,
+    DependencyFailure
 }
 
 public readonly record struct Error(ErrorKind Kind, string Code, string Message);

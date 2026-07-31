@@ -49,6 +49,7 @@ Konfiguration in `appsettings.json` / `appsettings.Development.json`:
 | `Areas:Agents:Workspace:WorktreesRoot` | Verzeichnis für Run-Worktrees (typisch `workspaces/`) |
 | `Areas:Agents:Workspace:ShellTimeout` | Timeout für `run_shell` |
 | `Areas:Agents:Workspace:MaxOutputChars` | Kürzung von stdout/stderr |
+| `Areas:Agents:Billing:LowBalanceUsdThreshold` | USD balance below this sets `lowBalance` on `GET /api/agents/billing/balance` |
 
 In Development ist `UseFake` standardmäßig `true`, damit `dotnet run` ohne Key startet.
 `Workspace:Enabled` bleibt standardmäßig `false` (Stub-Tools und Complete im Loop wie Teilprojekt 3).
@@ -64,6 +65,10 @@ dotnet user-secrets set "Areas:Agents:Llm:ApiKey" "<dein-key>" --project src/Age
 
 und in `appsettings.Development.json` `UseFake` auf `false` setzen (oder per Env überschreiben).
 Ohne Key und mit `UseFake: false` bricht der Start mit Validierungsfehler ab.
+
+Operator billing (host NanoGPT key): `GET /api/agents/billing/balance`, `GET .../usage`,
+`GET .../deposits/limits`, `POST .../deposits` (BTC-LN only), `GET .../deposits/{txId}`.
+Deposit create is rate-limited upstream (~10 / 10 min). Requires real NanoGPT when `UseFake` is false.
 
 `POST /api/agents/runs` legt den Run als `Pending` an und stellt ihn sofort in die
 Warteschlange. Ein Worker führt den Turn-Loop aus (LLM + Tools). Clients können

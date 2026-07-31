@@ -185,3 +185,108 @@ public sealed record AgentSuggestionsResponse(string Name)
 }
 
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int Total, int Skip, int Take);
+
+public sealed record BillingBalanceResponse(
+    decimal UsdBalance,
+    decimal NanoBalance,
+    string? NanoDepositAddress,
+    bool LowBalance,
+    decimal LowBalanceThresholdUsd)
+{
+    public static BillingBalanceResponse From(BillingBalanceView view) =>
+        new(view.UsdBalance, view.NanoBalance, view.NanoDepositAddress, view.LowBalance, view.LowBalanceThresholdUsd);
+}
+
+public sealed record BillingUsageTotalsResponse(
+    int Requests,
+    decimal CostUsd,
+    decimal RefundedUsd,
+    decimal NetCostUsd,
+    long InputTokens,
+    long OutputTokens,
+    long ReasoningTokens,
+    long TotalTokens);
+
+public sealed record BillingUsageBucketResponse(
+    string? Date,
+    string? Model,
+    int Requests,
+    decimal CostUsd,
+    decimal RefundedUsd,
+    decimal NetCostUsd,
+    long InputTokens,
+    long OutputTokens,
+    long ReasoningTokens,
+    long TotalTokens);
+
+public sealed record BillingUsageResponse(
+    string From,
+    string To,
+    BillingUsageTotalsResponse Totals,
+    IReadOnlyList<BillingUsageBucketResponse>? ByDay,
+    IReadOnlyList<BillingUsageBucketResponse>? ByModel,
+    IReadOnlyList<BillingUsageBucketResponse>? ByDayModel)
+{
+    public static BillingUsageResponse FromUsage(Runtime.Billing.NanoGptUsage usage) =>
+        new(
+            usage.From,
+            usage.To,
+            new BillingUsageTotalsResponse(
+                usage.Totals.Requests,
+                usage.Totals.CostUsd,
+                usage.Totals.RefundedUsd,
+                usage.Totals.NetCostUsd,
+                usage.Totals.InputTokens,
+                usage.Totals.OutputTokens,
+                usage.Totals.ReasoningTokens,
+                usage.Totals.TotalTokens),
+            MapBuckets(usage.ByDay),
+            MapBuckets(usage.ByModel),
+            MapBuckets(usage.ByDayModel));
+
+    private static IReadOnlyList<BillingUsageBucketResponse>? MapBuckets(
+        IReadOnlyList<Runtime.Billing.NanoGptUsageBucket>? buckets) =>
+        buckets is null
+            ? null
+            : buckets.Select(bucket => new BillingUsageBucketResponse(
+                bucket.Date,
+                bucket.Model,
+                bucket.Requests,
+                bucket.CostUsd,
+                bucket.RefundedUsd,
+                bucket.NetCostUsd,
+                bucket.InputTokens,
+                bucket.OutputTokens,
+                bucket.ReasoningTokens,
+                bucket.TotalTokens)).ToArray();
+}
+
+public sealed record BillingDepositLimitsResponse(
+    decimal Minimum,
+    decimal Maximum,
+    decimal? FiatEquivalentMinimum,
+    decimal? FiatEquivalentMaximum)
+{
+    public static BillingDepositLimitsResponse From(Runtime.Billing.NanoGptDepositLimits limits) =>
+        new(limits.Minimum, limits.Maximum, limits.FiatEquivalentMinimum, limits.FiatEquivalentMaximum);
+}
+
+public sealed record BillingDepositResponse(
+    string TxId,
+    decimal Amount,
+    string Status,
+    string? PaymentLink,
+    string? Address,
+    DateTimeOffset? CreatedAt,
+    DateTimeOffset? ExpiresAt)
+{
+    public static BillingDepositResponse From(Runtime.Billing.NanoGptDeposit deposit) =>
+        new(
+            deposit.TxId,
+            deposit.Amount,
+            deposit.Status,
+            deposit.PaymentLink,
+            deposit.Address,
+            deposit.CreatedAt,
+            deposit.ExpiresAt);
+}

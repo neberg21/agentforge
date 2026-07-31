@@ -15,6 +15,8 @@ public static class ResultExtensions
             ErrorKind.NotFound => (StatusCodes.Status404NotFound, "Nicht gefunden"),
             ErrorKind.Conflict => (StatusCodes.Status409Conflict, "Konflikt"),
             ErrorKind.Validation => (StatusCodes.Status400BadRequest, "Ungültige Anfrage"),
+            ErrorKind.RateLimited => (StatusCodes.Status429TooManyRequests, "Zu viele Anfragen"),
+            ErrorKind.DependencyFailure => (StatusCodes.Status502BadGateway, "Abhängigkeit fehlgeschlagen"),
             _ => (StatusCodes.Status500InternalServerError, "Unerwarteter Fehler")
         };
 

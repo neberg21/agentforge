@@ -17,6 +17,9 @@ public sealed class AgentsOptions
     public AgentsPricingOptions Pricing { get; set; } = new();
 
     public WorkspaceOptions Workspace { get; set; } = new();
+
+    [Required]
+    public AgentsBillingOptions Billing { get; set; } = new();
 }
 
 public sealed class AgentsLlmOptions
@@ -40,4 +43,10 @@ public sealed class AgentsPricingOptions
 
     [Range(0, double.MaxValue)]
     public decimal CompletionTokenPerMillion { get; set; }
+}
+
+public sealed class AgentsBillingOptions
+{
+    [Range(0, double.MaxValue)]
+    public decimal LowBalanceUsdThreshold { get; set; } = 5m;
 }
