@@ -61,7 +61,12 @@ public sealed class ConversationService
             : title.Trim();
 
         var agentIds = participantAgentIds.Distinct().ToArray();
-        var conversation = Conversation.Create(_currentUser.OwnerId, resolvedTitle, agentIds, _clock.UtcNow);
+        var conversation = Conversation.Create(
+            _currentUser.OwnerId,
+            resolvedTitle,
+            TitleMode.Locked,
+            agentIds,
+            _clock.UtcNow);
         if (!string.IsNullOrWhiteSpace(initialSystemMessage))
         {
             var systemMessage = conversation.AppendMessage(

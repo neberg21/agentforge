@@ -11,7 +11,7 @@ public class ConversationMessageResponseTests
         var ownerId = "owner-1";
         var now = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
         var participantIds = new[] { Guid.CreateVersion7() };
-        var conversation = Conversation.Create(ownerId, "c", participantIds, now);
+        var conversation = Conversation.Create(ownerId, "c", TitleMode.Locked, participantIds, now);
         var agentId = Guid.CreateVersion7();
         var mentionsJson = $"[\"{agentId}\"]";
         var message = conversation.AppendMessage(
@@ -36,7 +36,7 @@ public class ConversationMessageResponseTests
         var ownerId = "owner-1";
         var now = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
         var participantIds = new[] { Guid.CreateVersion7() };
-        var conversation = Conversation.Create(ownerId, "c", participantIds, now);
+        var conversation = Conversation.Create(ownerId, "c", TitleMode.Locked, participantIds, now);
         var message = conversation.AppendMessage(
             MessageRole.User,
             "note",

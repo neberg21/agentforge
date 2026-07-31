@@ -11,7 +11,7 @@ public class ConversationTests
 
         var empty = Array.Empty<Guid>();
         Assert.Throws<ArgumentException>(() =>
-            Conversation.Create("owner-1", "Chat", empty, now));
+            Conversation.Create("owner-1", "Chat", TitleMode.Locked, empty, now));
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public class ConversationTests
         var now = DateTimeOffset.Parse("2026-07-30T12:00:00Z");
         var agentId = Guid.CreateVersion7();
 
-        var conversation = Conversation.Create("owner-1", "D&D-Team", [agentId], now);
+        var conversation = Conversation.Create("owner-1", "D&D-Team", TitleMode.Locked, [agentId], now);
 
         Assert.Equal("owner-1", conversation.OwnerId);
         Assert.Equal("D&D-Team", conversation.Title);
@@ -37,7 +37,7 @@ public class ConversationTests
     public void Archive_WhenCalled_SetsArchivedAtAndNewToken()
     {
         var now = DateTimeOffset.Parse("2026-07-30T12:00:00Z");
-        var conversation = Conversation.Create("owner-1", "Chat", [Guid.CreateVersion7()], now);
+        var conversation = Conversation.Create("owner-1", "Chat", TitleMode.Locked, [Guid.CreateVersion7()], now);
         var tokenBefore = conversation.ConcurrencyToken;
         var archivedAt = now.AddMinutes(5);
 
@@ -52,7 +52,7 @@ public class ConversationTests
     public void AppendMessage_WhenCalled_IncrementsSequence()
     {
         var now = DateTimeOffset.Parse("2026-07-30T12:00:00Z");
-        var conversation = Conversation.Create("owner-1", "Chat", [Guid.CreateVersion7()], now);
+        var conversation = Conversation.Create("owner-1", "Chat", TitleMode.Locked, [Guid.CreateVersion7()], now);
 
         var first = conversation.AppendMessage(
             MessageRole.User,
@@ -84,7 +84,7 @@ public class ConversationTests
     public void Update_WhenTokenMismatch_Throws()
     {
         var now = DateTimeOffset.Parse("2026-07-30T12:00:00Z");
-        var conversation = Conversation.Create("owner-1", "Chat", [Guid.CreateVersion7()], now);
+        var conversation = Conversation.Create("owner-1", "Chat", TitleMode.Locked, [Guid.CreateVersion7()], now);
 
         var wrongToken = Guid.CreateVersion7();
         var newParticipants = new[] { Guid.CreateVersion7() };
@@ -98,7 +98,7 @@ public class ConversationTests
         var now = DateTimeOffset.Parse("2026-07-30T12:00:00Z");
         var firstAgent = Guid.CreateVersion7();
         var secondAgent = Guid.CreateVersion7();
-        var conversation = Conversation.Create("owner-1", "Alt", [firstAgent], now);
+        var conversation = Conversation.Create("owner-1", "Alt", TitleMode.Locked, [firstAgent], now);
         var token = conversation.ConcurrencyToken;
         var later = now.AddMinutes(1);
 

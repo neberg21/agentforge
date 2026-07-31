@@ -2,6 +2,8 @@ namespace AgentForge.Areas.Agents.Domain;
 
 public sealed class Conversation
 {
+    public const string DefaultAutoTitle = "New conversation";
+
     private readonly List<ConversationParticipant> _participants = [];
     private readonly List<ConversationMessage> _messages = [];
 
@@ -14,6 +16,12 @@ public sealed class Conversation
     public string OwnerId { get; private set; } = string.Empty;
 
     public string Title { get; private set; } = string.Empty;
+
+    public TitleMode TitleMode { get; private set; }
+
+    public int CompletedTurnCount { get; private set; }
+
+    public int? TitleGeneratedAtTurn { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -32,6 +40,7 @@ public sealed class Conversation
     public static Conversation Create(
         string ownerId,
         string title,
+        TitleMode titleMode,
         IReadOnlyList<Guid> participantAgentIds,
         DateTimeOffset now)
     {
@@ -45,6 +54,9 @@ public sealed class Conversation
             Id = Guid.CreateVersion7(),
             OwnerId = ownerId,
             Title = title,
+            TitleMode = titleMode,
+            CompletedTurnCount = 0,
+            TitleGeneratedAtTurn = null,
             CreatedAt = now,
             UpdatedAt = now,
             ConcurrencyToken = Guid.CreateVersion7()
@@ -82,6 +94,11 @@ public sealed class Conversation
             throw new ArgumentException("A conversation needs at least one participant.", nameof(participantAgentIds));
         }
 
+        if (TitleMode == TitleMode.Auto && !string.Equals(Title, title, StringComparison.Ordinal))
+        {
+            TitleMode = TitleMode.Paused;
+        }
+
         Title = title;
         UpdatedAt = now;
         ConcurrencyToken = Guid.CreateVersion7();
@@ -92,6 +109,71 @@ public sealed class Conversation
             var participant = ConversationParticipant.Create(Id, agentId);
             _participants.Add(participant);
         }
+    }
+
+    public bool ShouldSuggestTitle()
+    {
+        if (TitleMode != TitleMode.Auto)
+        {
+            return false;
+        }
+
+        if (TitleGeneratedAtTurn is null)
+        {
+            return CompletedTurnCount >= 1;
+        }
+
+        return CompletedTurnCount - TitleGeneratedAtTurn.Value >= 3;
+    }
+
+    public void RecordCompletedTurn(DateTimeOffset now)
+    {
+        CompletedTurnCount++;
+        UpdatedAt = now;
+    }
+
+    public bool ApplySuggestedTitle(string title, DateTimeOffset now)
+    {
+        if (TitleMode != TitleMode.Auto)
+        {
+            return false;
+        }
+
+        Title = title;
+        TitleGeneratedAtTurn = CompletedTurnCount;
+        UpdatedAt = now;
+        ConcurrencyToken = Guid.CreateVersion7();
+        return true;
+    }
+
+    public void SetTitle(string title, Guid concurrencyToken, DateTimeOffset now)
+    {
+        EnsureConcurrency(concurrencyToken);
+
+        if (TitleMode == TitleMode.Auto)
+        {
+            TitleMode = TitleMode.Paused;
+        }
+
+        Title = title;
+        UpdatedAt = now;
+        ConcurrencyToken = Guid.CreateVersion7();
+    }
+
+    public void LockTitle(Guid concurrencyToken, DateTimeOffset now)
+    {
+        EnsureConcurrency(concurrencyToken);
+        TitleMode = TitleMode.Locked;
+        UpdatedAt = now;
+        ConcurrencyToken = Guid.CreateVersion7();
+    }
+
+    public void ResumeAutoTitle(Guid concurrencyToken, DateTimeOffset now)
+    {
+        EnsureConcurrency(concurrencyToken);
+        TitleMode = TitleMode.Auto;
+        UpdatedAt = now;
+        ConcurrencyToken = Guid.CreateVersion7();
     }
 
     public ConversationMessage AppendMessage(
@@ -118,5 +200,13 @@ public sealed class Conversation
         _messages.Add(message);
         UpdatedAt = now;
         return message;
+    }
+
+    private void EnsureConcurrency(Guid concurrencyToken)
+    {
+        if (concurrencyToken != ConcurrencyToken)
+        {
+            throw new InvalidOperationException("Concurrency token mismatch.");
+        }
     }
 }

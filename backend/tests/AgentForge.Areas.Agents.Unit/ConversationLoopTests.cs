@@ -22,6 +22,7 @@ public class ConversationLoopTests
         var conversation = Conversation.Create(
             database.CurrentUser.OwnerId,
             "chat",
+            TitleMode.Locked,
             [agent.Id],
             clock.UtcNow);
         conversation.AppendMessage(
@@ -75,6 +76,7 @@ public class ConversationLoopTests
         var conversation = Conversation.Create(
             database.CurrentUser.OwnerId,
             "chat",
+            TitleMode.Locked,
             [agent.Id],
             clock.UtcNow);
         conversation.AppendMessage(
@@ -152,6 +154,7 @@ public class ConversationLoopTests
         var conversation = Conversation.Create(
             database.CurrentUser.OwnerId,
             "chat",
+            TitleMode.Locked,
             [agent.Id],
             clock.UtcNow);
         conversation.AppendMessage(
