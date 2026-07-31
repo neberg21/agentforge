@@ -40,6 +40,11 @@ public sealed record UpdateConversationRequest(
     [property: Required][property: MinLength(1)] Guid[] ParticipantAgentIds,
     Guid ConcurrencyToken);
 
+public sealed record PatchConversationTitleRequest(
+    [property: Required] string Action,
+    [property: StringLength(200, MinimumLength = 1)] string? Title,
+    Guid ConcurrencyToken);
+
 public sealed record PostConversationMessageRequest(
     [property: Required][property: StringLength(20_000, MinimumLength = 1)] string Content,
     Guid[]? Mentions);

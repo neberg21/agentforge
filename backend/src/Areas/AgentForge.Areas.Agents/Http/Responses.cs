@@ -80,6 +80,7 @@ public sealed record ConversationParticipantResponse(Guid AgentId, string Name);
 public sealed record ConversationResponse(
     Guid Id,
     string Title,
+    string TitleMode,
     IReadOnlyList<ConversationParticipantResponse> Participants,
     string? LastMessageExcerpt,
     DateTimeOffset? LastMessageAt,
@@ -88,10 +89,14 @@ public sealed record ConversationResponse(
     DateTimeOffset? ArchivedAt,
     Guid ConcurrencyToken)
 {
+    private static string FormatTitleMode(TitleMode mode) =>
+        mode.ToString().ToLowerInvariant();
+
     public static ConversationResponse From(ConversationListItem item) =>
         new(
             item.Conversation.Id,
             item.Conversation.Title,
+            FormatTitleMode(item.Conversation.TitleMode),
             item.Participants.Select(participant =>
                 new ConversationParticipantResponse(participant.AgentId, participant.Name)).ToArray(),
             item.LastMessageExcerpt,
@@ -105,6 +110,7 @@ public sealed record ConversationResponse(
         new(
             detail.Conversation.Id,
             detail.Conversation.Title,
+            FormatTitleMode(detail.Conversation.TitleMode),
             detail.Participants.Select(participant =>
                 new ConversationParticipantResponse(participant.AgentId, participant.Name)).ToArray(),
             null,
@@ -118,6 +124,7 @@ public sealed record ConversationResponse(
         new(
             conversation.Id,
             conversation.Title,
+            FormatTitleMode(conversation.TitleMode),
             participants,
             null,
             null,

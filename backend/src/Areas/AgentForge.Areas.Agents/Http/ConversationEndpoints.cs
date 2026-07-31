@@ -1,6 +1,8 @@
 using AgentForge.Areas.Abstractions;
 using AgentForge.Areas.Agents.Application;
+using AgentForge.Areas.Agents.Domain;
 using AgentForge.Areas.Agents.Runtime.Events;
+using AgentForge.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -64,6 +66,51 @@ public static class ConversationEndpoints
             return detail.ToHttpResult(value => TypedResults.Ok(ConversationResponse.From(value)));
         })
             .AddEndpointFilter<ValidationFilter<UpdateConversationRequest>>();
+
+        group.MapPatch("/{id:guid}/title", async (
+                ConversationService service,
+                Guid id,
+                PatchConversationTitleRequest request,
+                CancellationToken ct) =>
+        {
+            Result<Conversation> updated;
+            if (string.Equals(request.Action, "set", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(request.Title))
+                {
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["title"] = ["Title is required when action is set."]
+                    });
+                }
+
+                updated = await service.SetTitleAsync(id, request.Title, request.ConcurrencyToken, ct);
+            }
+            else if (string.Equals(request.Action, "lock", StringComparison.OrdinalIgnoreCase))
+            {
+                updated = await service.LockTitleAsync(id, request.ConcurrencyToken, ct);
+            }
+            else if (string.Equals(request.Action, "resume", StringComparison.OrdinalIgnoreCase))
+            {
+                updated = await service.ResumeAutoTitleAsync(id, request.ConcurrencyToken, ct);
+            }
+            else
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["action"] = ["Action must be set, lock, or resume."]
+                });
+            }
+
+            if (!updated.IsSuccess)
+            {
+                return updated.Error!.Value.ToProblem();
+            }
+
+            var detail = await service.GetAsync(id, ct);
+            return detail.ToHttpResult(value => TypedResults.Ok(ConversationResponse.From(value)));
+        })
+            .AddEndpointFilter<ValidationFilter<PatchConversationTitleRequest>>();
 
         group.MapDelete("/{id:guid}", async (ConversationService service, Guid id, CancellationToken ct) =>
         {
