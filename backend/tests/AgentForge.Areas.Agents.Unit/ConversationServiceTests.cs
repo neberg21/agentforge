@@ -49,7 +49,7 @@ public class ConversationServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_WhenAgentsExist_CreatesWithDefaultTitleFromNames()
+    public async Task CreateAsync_WhenTitleOmitted_UsesPlaceholderAndAutoMode()
     {
         using var database = new AgentsDatabase();
         var clock = TestClock.AtEpoch();
@@ -62,8 +62,65 @@ public class ConversationServiceTests
         var result = await conversations.CreateAsync(null, ids, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("leo, max", result.Value!.Title);
+        Assert.Equal(Conversation.DefaultAutoTitle, result.Value!.Title);
+        Assert.Equal(TitleMode.Auto, result.Value.TitleMode);
         Assert.Equal(2, result.Value.Participants.Count);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenTitleProvided_LocksTitle()
+    {
+        using var database = new AgentsDatabase();
+        var (context, conversations, agents, _) = NewServices(database, TestClock.AtEpoch());
+        await using var _ = context;
+        var leo = await agents.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+        var ids = new[] { leo.Value!.Id };
+
+        var result = await conversations.CreateAsync(" My Chat ", ids, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("My Chat", result.Value!.Title);
+        Assert.Equal(TitleMode.Locked, result.Value.TitleMode);
+    }
+
+    [Fact]
+    public async Task SetTitleAsync_WhenAuto_Pauses()
+    {
+        using var database = new AgentsDatabase();
+        var (context, conversations, agents, _) = NewServices(database, TestClock.AtEpoch());
+        await using var _ = context;
+        var leo = await agents.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+        var ids = new[] { leo.Value!.Id };
+        var created = await conversations.CreateAsync(null, ids, TestContext.Current.CancellationToken);
+
+        var result = await conversations.SetTitleAsync(
+            created.Value!.Id,
+            "Manual",
+            created.Value.ConcurrencyToken,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TitleMode.Paused, result.Value!.TitleMode);
+        Assert.Equal("Manual", result.Value.Title);
+    }
+
+    [Fact]
+    public async Task LockTitleAsync_WhenAuto_Locks()
+    {
+        using var database = new AgentsDatabase();
+        var (context, conversations, agents, _) = NewServices(database, TestClock.AtEpoch());
+        await using var _ = context;
+        var leo = await agents.CreateAsync(Definition("leo"), TestContext.Current.CancellationToken);
+        var ids = new[] { leo.Value!.Id };
+        var created = await conversations.CreateAsync(null, ids, TestContext.Current.CancellationToken);
+
+        var result = await conversations.LockTitleAsync(
+            created.Value!.Id,
+            created.Value.ConcurrencyToken,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TitleMode.Locked, result.Value!.TitleMode);
     }
 
     [Fact]

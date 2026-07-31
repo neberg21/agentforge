@@ -52,19 +52,24 @@ public sealed class ConversationService
             return agentsResult.Error!.Value;
         }
 
-        var agents = agentsResult.Value!;
-        var orderedNames = participantAgentIds
-            .Distinct()
-            .Select(id => agents.First(agent => agent.Id == id).Name);
-        var resolvedTitle = string.IsNullOrWhiteSpace(title)
-            ? string.Join(", ", orderedNames)
-            : title.Trim();
+        string resolvedTitle;
+        TitleMode titleMode;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            resolvedTitle = Conversation.DefaultAutoTitle;
+            titleMode = TitleMode.Auto;
+        }
+        else
+        {
+            resolvedTitle = title.Trim();
+            titleMode = TitleMode.Locked;
+        }
 
         var agentIds = participantAgentIds.Distinct().ToArray();
         var conversation = Conversation.Create(
             _currentUser.OwnerId,
             resolvedTitle,
-            TitleMode.Locked,
+            titleMode,
             agentIds,
             _clock.UtcNow);
         if (!string.IsNullOrWhiteSpace(initialSystemMessage))
@@ -169,6 +174,94 @@ public sealed class ConversationService
         try
         {
             conversation.Update(title.Trim(), agentIds, concurrencyToken, _clock.UtcNow);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (InvalidOperationException)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+
+        return conversation;
+    }
+
+    public async Task<Result<Conversation>> SetTitleAsync(
+        Guid id,
+        string title,
+        Guid concurrencyToken,
+        CancellationToken ct)
+    {
+        var conversationResult = await LoadMutableConversationAsync(id, concurrencyToken, ct);
+        if (!conversationResult.IsSuccess)
+        {
+            return conversationResult;
+        }
+
+        var conversation = conversationResult.Value!;
+        try
+        {
+            conversation.SetTitle(title.Trim(), concurrencyToken, _clock.UtcNow);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (InvalidOperationException)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+
+        return conversation;
+    }
+
+    public async Task<Result<Conversation>> LockTitleAsync(
+        Guid id,
+        Guid concurrencyToken,
+        CancellationToken ct)
+    {
+        var conversationResult = await LoadMutableConversationAsync(id, concurrencyToken, ct);
+        if (!conversationResult.IsSuccess)
+        {
+            return conversationResult;
+        }
+
+        var conversation = conversationResult.Value!;
+        try
+        {
+            conversation.LockTitle(concurrencyToken, _clock.UtcNow);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (InvalidOperationException)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+
+        return conversation;
+    }
+
+    public async Task<Result<Conversation>> ResumeAutoTitleAsync(
+        Guid id,
+        Guid concurrencyToken,
+        CancellationToken ct)
+    {
+        var conversationResult = await LoadMutableConversationAsync(id, concurrencyToken, ct);
+        if (!conversationResult.IsSuccess)
+        {
+            return conversationResult;
+        }
+
+        var conversation = conversationResult.Value!;
+        try
+        {
+            conversation.ResumeAutoTitle(concurrencyToken, _clock.UtcNow);
             await _db.SaveChangesAsync(ct);
         }
         catch (InvalidOperationException)
@@ -403,5 +496,30 @@ public sealed class ConversationService
         }
 
         return infos;
+    }
+
+    private async Task<Result<Conversation>> LoadMutableConversationAsync(
+        Guid id,
+        Guid concurrencyToken,
+        CancellationToken ct)
+    {
+        var conversation = await _db.Conversations.FirstOrDefaultAsync(candidate => candidate.Id == id, ct);
+
+        if (conversation is null)
+        {
+            return AgentErrors.ConversationNotFound(id);
+        }
+
+        if (conversation.IsArchived)
+        {
+            return AgentErrors.ConversationArchived(id);
+        }
+
+        if (conversation.ConcurrencyToken != concurrencyToken)
+        {
+            return AgentErrors.ConcurrencyConflict();
+        }
+
+        return conversation;
     }
 }
