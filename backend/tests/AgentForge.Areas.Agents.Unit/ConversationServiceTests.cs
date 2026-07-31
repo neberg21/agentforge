@@ -36,6 +36,7 @@ public class ConversationServiceTests
         var context = database.NewContext();
         var agents = new AgentService(context, database.CurrentUser, clock);
         var queue = new RecordingReplyQueue();
+        var titleQueue = new ChannelConversationTitleQueue();
         var events = new InProcessConversationEventBus();
         var llm = new ScriptedLlmClient([new LlmCompletionResult("Ship the feature.", [], new LlmUsage(1, 1))]);
         var conversations = new ConversationService(
@@ -43,6 +44,7 @@ public class ConversationServiceTests
             database.CurrentUser,
             clock,
             queue,
+            titleQueue,
             events,
             llm);
         return (context, conversations, agents, queue);

@@ -9,6 +9,7 @@ public enum RunEventType
     Message,
     Usage,
     Error,
+    Title,
     Done
 }
 

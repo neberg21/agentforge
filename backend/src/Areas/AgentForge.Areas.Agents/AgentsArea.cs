@@ -53,6 +53,7 @@ public sealed class AgentsArea : IArea
         services.AddSingleton<IConversationEventBus, InProcessConversationEventBus>();
         services.AddSingleton<IRunQueue, ChannelRunQueue>();
         services.AddSingleton<IConversationReplyQueue, ChannelConversationReplyQueue>();
+        services.AddSingleton<IConversationTitleQueue, ChannelConversationTitleQueue>();
         services.AddSingleton<IGitWorkspace, GitCliWorkspace>();
         services.AddScoped<IRunWorkspaceSession, RunWorkspaceSession>();
         services.AddScoped<IConversationReadSession, ConversationReadSession>();
@@ -74,8 +75,10 @@ public sealed class AgentsArea : IArea
         });
         services.AddScoped<RunLoop>();
         services.AddScoped<ConversationLoop>();
+        services.AddScoped<ConversationTitleService>();
         services.AddHostedService<RunWorker>();
         services.AddHostedService<ConversationReplyWorker>();
+        services.AddHostedService<ConversationTitleWorker>();
 
         RegisterLlmClient(services, configuration);
 

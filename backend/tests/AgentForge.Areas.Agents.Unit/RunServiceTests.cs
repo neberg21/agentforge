@@ -50,6 +50,7 @@ public class RunServiceTests
             database.CurrentUser,
             clock,
             replyQueue,
+            new ChannelConversationTitleQueue(),
             events,
             llm);
         var runs = new RunService(context, clock, queue);

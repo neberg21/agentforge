@@ -15,6 +15,7 @@ public sealed class ConversationService
     private readonly ICurrentUser _currentUser;
     private readonly IClock _clock;
     private readonly IConversationReplyQueue _replyQueue;
+    private readonly IConversationTitleQueue _titleQueue;
     private readonly IConversationEventBus _events;
     private readonly ILlmClient _llm;
 
@@ -23,6 +24,7 @@ public sealed class ConversationService
         ICurrentUser currentUser,
         IClock clock,
         IConversationReplyQueue replyQueue,
+        IConversationTitleQueue titleQueue,
         IConversationEventBus events,
         ILlmClient llm)
     {
@@ -30,6 +32,7 @@ public sealed class ConversationService
         _currentUser = currentUser;
         _clock = clock;
         _replyQueue = replyQueue;
+        _titleQueue = titleQueue;
         _events = events;
         _llm = llm;
     }
@@ -271,6 +274,12 @@ public sealed class ConversationService
         catch (DbUpdateConcurrencyException)
         {
             return AgentErrors.ConcurrencyConflict();
+        }
+
+        if (conversation.ShouldSuggestTitle())
+        {
+            var titleJob = new ConversationTitleJob(conversation.Id);
+            _titleQueue.TryEnqueue(titleJob);
         }
 
         return conversation;

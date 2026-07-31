@@ -37,7 +37,7 @@ public class BuilderSessionServiceTests
         var llm = new ScriptedLlmClient(
             [new LlmCompletionResult("ok", [], new LlmUsage(1, 1))]);
         var conversations = new ConversationService(
-            context, database.CurrentUser, clock, queue, events, llm);
+            context, database.CurrentUser, clock, queue, new ChannelConversationTitleQueue(), events, llm);
         var nameSource = new BogusGermanFirstNameSource();
         var suggestions = new AgentSuggestionService(agents, nameSource);
         var builder = new BuilderSessionService(agents, conversations, suggestions);
