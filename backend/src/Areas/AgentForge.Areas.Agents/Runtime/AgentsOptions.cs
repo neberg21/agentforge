@@ -29,6 +29,8 @@ public sealed class AgentsLlmOptions
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(1);
 
     public bool UseFake { get; set; }
+
+    public string TitleModel { get; set; } = "gpt-4.1-nano";
 }
 
 public sealed class AgentsPricingOptions

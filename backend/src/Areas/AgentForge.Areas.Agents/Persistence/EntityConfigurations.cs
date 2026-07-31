@@ -111,6 +111,12 @@ internal sealed class ConversationConfiguration : IEntityTypeConfiguration<Conve
 
         builder.Property(conversation => conversation.OwnerId).HasMaxLength(100).IsRequired();
         builder.Property(conversation => conversation.Title).HasMaxLength(200).IsRequired();
+        builder.Property(conversation => conversation.TitleMode)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+        builder.Property(conversation => conversation.CompletedTurnCount).IsRequired();
+        builder.Property(conversation => conversation.TitleGeneratedAtTurn);
         builder.Property(conversation => conversation.ConcurrencyToken).IsConcurrencyToken();
 
         builder.HasMany(conversation => conversation.Participants)
