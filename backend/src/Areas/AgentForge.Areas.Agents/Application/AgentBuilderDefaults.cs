@@ -4,11 +4,11 @@ namespace AgentForge.Areas.Agents.Application;
 
 public static class AgentBuilderDefaults
 {
-    public const string Name = "Agent Builder";
+    public const string Name = "Bob";
     public const string Model = "gpt-4.1-mini";
     public const string ConversationTitle = "New agent";
 
-    public const string Description =
+    private const string Description =
         "Helps you design a new AgentForge agent through a short interview.";
 
     public const string SystemPrompt = """
