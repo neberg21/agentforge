@@ -95,6 +95,13 @@ public sealed class BillingService
             var deposit = await _account.GetBtcLnDepositAsync(txId, ct);
             return Result<NanoGptDeposit>.Success(deposit);
         }
+        catch (NanoGptAccountException ex) when ((int)ex.StatusCode == 404)
+        {
+            return Result<NanoGptDeposit>.Failure(new Error(
+                ErrorKind.NotFound,
+                "deposit_not_found",
+                "Deposit was not found."));
+        }
         catch (Exception ex) when (ex is NanoGptAccountException or HttpRequestException or OperationCanceledException)
         {
             return MapFailure<NanoGptDeposit>(ex, ct);
@@ -137,7 +144,7 @@ public sealed class BillingService
 
         if (status == 404)
         {
-            return new Error(ErrorKind.NotFound, "deposit_not_found", "Deposit was not found.");
+            return new Error(ErrorKind.NotFound, "nanogpt_not_found", "NanoGPT resource was not found.");
         }
 
         if (status == 429)

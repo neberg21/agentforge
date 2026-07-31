@@ -3,6 +3,7 @@ using AgentForge.Areas.Agents.Application;
 using AgentForge.Areas.Agents.Http;
 using AgentForge.Areas.Agents.Persistence;
 using AgentForge.Areas.Agents.Runtime;
+using AgentForge.Areas.Agents.Runtime.Billing;
 using AgentForge.Areas.Agents.Runtime.Events;
 using AgentForge.Areas.Agents.Runtime.Llm;
 using AgentForge.Areas.Agents.Runtime.Queue;
@@ -78,6 +79,7 @@ public sealed class AgentsArea : IArea
         services.AddHostedService<ConversationReplyWorker>();
 
         RegisterLlmClient(services, configuration);
+        RegisterAccountClient(services, configuration);
 
         services.AddScoped<AgentService>();
         services.AddSingleton<IAgentNameCandidateSource, BogusGermanFirstNameSource>();
@@ -85,6 +87,7 @@ public sealed class AgentsArea : IArea
         services.AddScoped<RunService>();
         services.AddScoped<ConversationService>();
         services.AddScoped<BuilderSessionService>();
+        services.AddScoped<BillingService>();
 
         services.AddHealthChecks().AddDbContextCheck<AgentsDbContext>("agents-db");
     }
@@ -94,6 +97,7 @@ public sealed class AgentsArea : IArea
         routes.MapAgentEndpoints();
         routes.MapRunEndpoints();
         routes.MapConversationEndpoints();
+        routes.MapBillingEndpoints();
     }
 
     public Task MigrateAsync(IServiceProvider services, CancellationToken cancellationToken) =>
@@ -121,6 +125,30 @@ public sealed class AgentsArea : IArea
         {
             var options = provider.GetRequiredService<IOptions<AgentsOptions>>().Value;
             var baseUrl = options.Llm.BaseUrl.TrimEnd('/') + "/";
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = options.Llm.Timeout;
+        });
+    }
+
+    private static void RegisterAccountClient(IServiceCollection services, IConfiguration configuration)
+    {
+        var useFake = configuration.GetValue($"{AgentsOptions.SectionName}:Llm:UseFake", false);
+        var environmentName = configuration["ASPNETCORE_ENVIRONMENT"]
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+        var isTesting = string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase);
+
+        if (useFake || isTesting)
+        {
+            services.AddSingleton<INanoGptAccountClient, FakeNanoGptAccountClient>();
+            return;
+        }
+
+        services.AddHttpClient<INanoGptAccountClient, NanoGptAccountClient>((provider, client) =>
+        {
+            var options = provider.GetRequiredService<IOptions<AgentsOptions>>().Value;
+            var root = NanoGptApiRoot.FromLlmBaseUrl(options.Llm.BaseUrl);
+            var baseUrl = root.TrimEnd('/') + "/";
             client.BaseAddress = new Uri(baseUrl);
             client.Timeout = options.Llm.Timeout;
         });

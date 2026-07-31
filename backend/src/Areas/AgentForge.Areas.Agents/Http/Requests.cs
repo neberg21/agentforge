@@ -46,6 +46,9 @@ public sealed record PostConversationMessageRequest(
 
 public sealed record DraftRunRequest(Guid? AgentId);
 
+public sealed record CreateDepositRequest(
+    [property: Range(0.00000001, double.MaxValue)] decimal Amount);
+
 public static class RequestMapping
 {
     public static AgentDefinition ToDefinition(this CreateAgentRequest request) =>

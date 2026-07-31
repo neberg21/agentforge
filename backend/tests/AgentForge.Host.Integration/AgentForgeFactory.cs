@@ -1,3 +1,4 @@
+using AgentForge.Areas.Agents.Runtime.Billing;
 using AgentForge.Areas.Agents.Runtime.Llm;
 using AgentForge.Areas.Agents.Runtime.Queue;
 using AgentForge.Areas.Agents.Runtime.Workspace;
@@ -121,6 +122,9 @@ public class AgentForgeFactory : WebApplicationFactory<Program>
                 var llm = new DelayedScriptedLlmClient([result], TimeSpan.FromMilliseconds(300));
                 services.AddSingleton<ILlmClient>(llm);
             }
+
+            services.RemoveAll<INanoGptAccountClient>();
+            services.AddSingleton<INanoGptAccountClient, FakeNanoGptAccountClient>();
 
             if (_gitOverride is not null)
             {
